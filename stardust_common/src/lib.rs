@@ -1,6 +1,7 @@
 pub mod math;
 
-mod mesh;
-mod object;
-mod camera;
-mod scene;
+pub mod glsl;
+pub mod shape;
+pub mod object;
+pub mod camera;
+pub mod scene;

@@ -1,8 +1,8 @@
 use crate::math::*;
-use crate::mesh::Mesh;
+use crate::shape::Shape;
 
-pub struct Object<M: Mesh> {
-    mesh: M,
+pub struct Object<S: Shape> {
+    voxel_data: S,
 
     pos: Vec3,
     rot: Quat,
