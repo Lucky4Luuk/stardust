@@ -1,11 +1,10 @@
-use crate::shape::Shape;
 use crate::object::Object;
 
-pub struct Scene<S: Shape> {
-    objects: Vec<Object<S>>,
+pub struct Scene {
+    pub objects: Vec<Object>,
 }
 
-impl<S: Shape> Scene<S> {
+impl Scene {
     pub fn new() -> Self {
         Self {
             objects: Vec::new(),

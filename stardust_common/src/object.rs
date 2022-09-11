@@ -1,10 +1,18 @@
 use crate::math::*;
 use crate::shape::Shape;
 
-pub struct Object<S: Shape> {
-    voxel_data: S,
+pub enum Staticness {
+    Full,
+    Partial,
+    None,
+}
 
-    pos: Vec3,
-    rot: Quat,
-    scale: Vec3,
+pub struct Object {
+    pub voxel_data: Box<dyn Shape>,
+
+    pub pos: Vec3,
+    pub rot: Quat,
+    pub scale: Vec3,
+
+    pub staticness: Staticness,
 }

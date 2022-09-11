@@ -49,4 +49,12 @@ impl GlslFunction {
             self.code,
         )
     }
+
+    pub fn call_to_glsl(&self) -> String {
+        format!(
+            "{}({})",
+            self.name,
+            self.args.iter().map(|(n,_t)| n.as_str()).collect::<Vec<&str>>().join(", "),
+        )
+    }
 }
