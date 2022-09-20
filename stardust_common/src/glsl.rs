@@ -50,11 +50,11 @@ impl GlslFunction {
         )
     }
 
-    pub fn call_to_glsl(&self) -> String {
+    pub fn call_to_glsl<F: Fn(&str) -> String>(&self, arg_map: F) -> String {
         format!(
             "{}({})",
             self.name,
-            self.args.iter().map(|(n,_t)| n.as_str()).collect::<Vec<&str>>().join(", "),
+            self.args.iter().map(|(n,_t)| arg_map(n.as_str())).collect::<Vec<String>>().join(", "),
         )
     }
 }

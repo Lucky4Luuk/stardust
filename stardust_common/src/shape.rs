@@ -26,7 +26,11 @@ impl Shape for Sphere {
     }
 
     fn glsl_call(&self, func: &GlslFunction) -> String {
-        func.call_to_glsl().replace("r", &self.0.to_string())
+        func.call_to_glsl(|n| match n {
+            "p" => "p".to_string(),
+            "r" => self.0.to_string(),
+            _ => unimplemented!(),
+        })
     }
 }
 
@@ -43,11 +47,15 @@ impl Shape for Cube {
     }
 
     fn glsl_call(&self, func: &GlslFunction) -> String {
-        func.call_to_glsl().replace("b", &format!("vec3({}, {}, {})", self.0.x, self.0.y, self.0.z))
+        func.call_to_glsl(|n| match n {
+            "p" => "p".to_string(),
+            "b" => format!("vec3({:.},{:.},{:.})", self.0.x, self.0.y, self.0.z),
+            _ => unimplemented!(),
+        })
     }
 }
 
-pub struct Torus(pub [f32; 2]);
+pub struct Torus(pub Vec2);
 impl Shape for Torus {
     fn glsl(&self) -> GlslFunction {
         GlslFunction {
@@ -60,6 +68,10 @@ impl Shape for Torus {
     }
 
     fn glsl_call(&self, func: &GlslFunction) -> String {
-        func.call_to_glsl().replace("t", &format!("vec2({}, {})", self.0[0], self.0[1]))
+        func.call_to_glsl(|n| match n {
+            "p" => "p".to_string(),
+            "t" => format!("vec2({:.},{:.})", self.0.x, self.0.y),
+            _ => unimplemented!(),
+        })
     }
 }
