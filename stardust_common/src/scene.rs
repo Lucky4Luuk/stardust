@@ -16,6 +16,9 @@ impl Scene {
         }
     }
 
+    //TODO: Keep track of all defined function names to avoid redefinitions
+    //      This is actually pretty important, as custom shapes will
+    //      end up used here and might conflict or cause issues (func named `map` or `d`)
     pub fn get_glsl(&self) -> Vec<GlslFunction> {
         let mut funcs = Vec::new();
 
