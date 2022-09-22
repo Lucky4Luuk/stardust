@@ -1,4 +1,8 @@
 [workspace]
 members = [
+	"stardust",
 	"stardust_common",
+]
+exclude = [
+	"stardust_demo",
 ]
