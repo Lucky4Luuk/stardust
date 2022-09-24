@@ -10,3 +10,4 @@ winit = "0.26"
 sensible-env-logger = { version = "0.3.1", features = ["local-time"] }
 log = "0.4"
 wgpu = "0.13"
+pollster = "0.2"
