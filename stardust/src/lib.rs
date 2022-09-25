@@ -7,6 +7,8 @@ use winit::{
     window::{WindowBuilder, Window},
 };
 
+pub mod rendering;
+
 pub trait App {
     fn update(&self) {}
     fn render(&self) {}
@@ -14,72 +16,21 @@ pub trait App {
 
 struct State<A: App> {
     app: A,
-
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+    renderer: rendering::Renderer,
 }
 
 impl<A: App> State<A> {
     async fn new(window: &Window, app: A) -> Self {
-        let size = window.inner_size();
-
-        // The instance is a handle to our GPU
-        // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
-        let surface = unsafe { instance.create_surface(window) };
-        let adapter = instance.request_adapter(
-            &wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            },
-        ).await.unwrap();
-
-        let (device, queue) = adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                features: wgpu::Features::empty(),
-                // WebGL doesn't support all of wgpu's features, so if
-                // we're building for the web we'll have to disable some.
-                limits: if cfg!(target_arch = "wasm32") {
-                    wgpu::Limits::downlevel_webgl2_defaults()
-                } else {
-                    wgpu::Limits::default()
-                },
-                label: None,
-            },
-            None, // Trace path
-        ).await.unwrap();
-
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_supported_formats(&adapter)[0],
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
-        };
-        surface.configure(&device, &config);
+        let renderer = rendering::Renderer::new(window).await;
 
         Self {
             app: app,
-
-            surface: surface,
-            device: device,
-            queue: queue,
-            config: config,
-            size: size,
+            renderer: renderer,
         }
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
-        }
+        self.renderer.resize(new_size);
     }
 
     fn event(&mut self, event: &WindowEvent) -> bool {
@@ -87,11 +38,16 @@ impl<A: App> State<A> {
     }
 
     fn update(&mut self) {
-        app.update();
+        self.app.update();
+    }
+
+    fn size(&self) -> winit::dpi::PhysicalSize<u32> {
+        self.renderer.size()
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        todo!()
+        self.renderer.render()?;
+        Ok(())
     }
 }
 
@@ -116,6 +72,24 @@ pub fn run(app: impl App + 'static) {
                 _ => {}
             }
         },
+        Event::RedrawRequested(window_id) if window_id == window.id() => {
+            state.update();
+            match state.render() {
+                Ok(_) => {}
+                // Reconfigure the surface if lost
+                Err(wgpu::SurfaceError::Lost) => state.resize(state.size()),
+                // The system is out of memory, we should probably quit
+                Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                // All other errors (Outdated, Timeout) should be resolved by the next frame
+                Err(e) => eprintln!("{:?}", e),
+            }
+        },
+        Event::MainEventsCleared => {
+            state.update();
+            // RedrawRequested will only trigger once, unless we manually
+            // request it.
+            window.request_redraw();
+        }
         _ => {}
     });
 }
