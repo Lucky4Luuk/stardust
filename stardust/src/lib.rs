@@ -82,12 +82,12 @@ impl<A: App> State<A> {
         }
     }
 
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        todo!()
+    fn event(&mut self, event: &WindowEvent) -> bool {
+        false
     }
 
     fn update(&mut self) {
-        todo!()
+        app.update();
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -104,7 +104,7 @@ pub fn run(app: impl App + 'static) {
     let mut state = pollster::block_on(State::new(&window, app));
 
     event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent { ref event, window_id } if window_id == window.id() => {
+        Event::WindowEvent { ref event, window_id } if window_id == window.id() => if !state.event(event) {
             match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 WindowEvent::Resized(physical_size) => {
