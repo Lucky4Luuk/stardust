@@ -1,8 +1,12 @@
+use std::sync::Arc;
+
 use winit::window::Window;
 use raw_gl_context::{GlConfig, GlContext};
 use glow::*;
 
-mod render_pass;
+pub mod render_pass;
+pub mod mesh;
+pub mod shader;
 
 #[derive(Debug)]
 pub enum RenderError {
@@ -11,25 +15,26 @@ pub enum RenderError {
 
 pub struct Renderer {
     size: winit::dpi::PhysicalSize<u32>,
-    context: GlContext,
-    gl: Context,
+    pub(crate) context: GlContext,
+    pub(crate) is_context_current: bool,
+    pub(crate) gl: Arc<Context>,
 }
 
 impl Renderer {
     pub fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
-        let context = unsafe { GlContext::create(window, GlConfig::default()).expect("Failed to create OpenGL context!") };
+        let context = GlContext::create(window, GlConfig::default()).expect("Failed to create OpenGL context!");
         let gl = unsafe {
             context.make_current();
             let gl = Context::from_loader_function(|symbol| context.get_proc_address(symbol) as *const _);
-            context.make_not_current();
-            gl
+            Arc::new(gl)
         };
 
         Self {
             size: size,
             context: context,
+            is_context_current: true,
             gl: gl,
         }
     }
@@ -47,6 +52,7 @@ impl Renderer {
     pub fn render(&mut self) -> Result<(), RenderError> {
         unsafe {
             self.context.make_current();
+            self.is_context_current = true;
 
             self.gl.clear_color(0.2,0.2,0.2,1.0);
             self.gl.clear(COLOR_BUFFER_BIT);
@@ -54,6 +60,7 @@ impl Renderer {
 
         self.context.swap_buffers();
         self.context.make_not_current();
+        self.is_context_current = false;
         Ok(())
     }
 }

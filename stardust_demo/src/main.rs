@@ -1,23 +1,24 @@
 #[macro_use] extern crate log;
-use stardust::*;
+use stardust::{*, rendering::*};
 
 pub struct Demo {
-
+    mesh: mesh::Mesh,
 }
 
 impl Demo {
-    fn new() -> Self {
+    fn new(ctx: &Context) -> Self {
+        let mesh = mesh::Mesh::quad(&ctx);
         Self {
-            
+            mesh: mesh,
         }
     }
 }
 
 impl App for Demo {
-    fn update(&self) {}
-    fn render(&self) {}
+    fn update(&self, ctx: &Context) {}
+    fn render(&self, ctx: &Context) {}
 }
 
 fn main() {
-    stardust::run(Demo::new())
+    stardust::run(|ctx| Demo::new(ctx))
 }
