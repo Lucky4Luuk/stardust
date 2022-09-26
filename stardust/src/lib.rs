@@ -20,8 +20,8 @@ struct State<A: App> {
 }
 
 impl<A: App> State<A> {
-    async fn new(window: &Window, app: A) -> Self {
-        let renderer = rendering::Renderer::new(window).await;
+    fn new(window: &Window, app: A) -> Self {
+        let renderer = rendering::Renderer::new(window);
 
         Self {
             app: app,
@@ -45,7 +45,7 @@ impl<A: App> State<A> {
         self.renderer.size()
     }
 
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    fn render(&mut self) -> Result<(), rendering::RenderError> {
         self.renderer.render()?;
         Ok(())
     }
@@ -57,7 +57,7 @@ pub fn run(app: impl App + 'static) {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    let mut state = pollster::block_on(State::new(&window, app));
+    let mut state = State::new(&window, app);
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { ref event, window_id } if window_id == window.id() => if !state.event(event) {
@@ -76,11 +76,6 @@ pub fn run(app: impl App + 'static) {
             state.update();
             match state.render() {
                 Ok(_) => {}
-                // Reconfigure the surface if lost
-                Err(wgpu::SurfaceError::Lost) => state.resize(state.size()),
-                // The system is out of memory, we should probably quit
-                Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                // All other errors (Outdated, Timeout) should be resolved by the next frame
                 Err(e) => eprintln!("{:?}", e),
             }
         },
