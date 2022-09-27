@@ -7,6 +7,8 @@ pub struct Demo {
 
 impl Demo {
     fn new(ctx: &Context) -> Self {
+        ctx.set_window_title("Stardust demo");
+        trace!("Demo created!");
         let mesh = mesh::Mesh::quad(&ctx);
         Self {
             mesh: mesh,
