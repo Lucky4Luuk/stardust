@@ -45,13 +45,13 @@ impl Mesh {
             trace!("GL cloned!");
 
             let vbo = gl.create_buffer().expect("Failed to create VBO!");
-            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, quad_vertices_u8, glow::STATIC_DRAW);
+            gl.bind_buffer(ARRAY_BUFFER, Some(vbo));
+            gl.buffer_data_u8_slice(ARRAY_BUFFER, quad_vertices_u8, STATIC_DRAW);
 
             let vao = gl.create_vertex_array().expect("Failed to create VAO!");
             gl.bind_vertex_array(Some(vao));
             gl.enable_vertex_attrib_array(0);
-            gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 12, 0);
+            gl.vertex_attrib_pointer_f32(0, 3, FLOAT, false, 12, 0);
 
             Self {
                 vbo: vbo,
