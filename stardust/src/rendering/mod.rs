@@ -13,6 +13,11 @@ pub enum RenderError {
     Generic,
 }
 
+pub trait Drawable {
+    /// Should only be called while a shader is bound
+    fn draw(&self) -> Result<(), RenderError>;
+}
+
 pub struct Renderer {
     size: winit::dpi::PhysicalSize<u32>,
     pub(crate) context: GlContext,
@@ -49,7 +54,7 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self) -> Result<(), RenderError> {
+    pub fn start_frame(&mut self) -> Result<(), RenderError> {
         unsafe {
             self.context.make_current();
             self.is_context_current = true;
@@ -57,7 +62,10 @@ impl Renderer {
             self.gl.clear_color(0.2,0.2,0.2,1.0);
             self.gl.clear(COLOR_BUFFER_BIT);
         }
+        Ok(())
+    }
 
+    pub fn end_frame(&mut self) -> Result<(), RenderError> {
         self.context.swap_buffers();
         self.context.make_not_current();
         self.is_context_current = false;

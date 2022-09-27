@@ -46,4 +46,23 @@ impl Shader {
             }
         }
     }
+
+    fn bind(&self) {
+        unsafe {
+            self.gl.use_program(Some(self.program));
+        }
+    }
+
+    fn unbind(&self) {
+        unsafe {
+            self.gl.use_program(None);
+        }
+    }
+
+    /// Runs a closure while the shader is bound
+    pub fn while_bound<F: FnOnce()>(&self, f: F) {
+        self.bind();
+        f();
+        self.unbind();
+    }
 }

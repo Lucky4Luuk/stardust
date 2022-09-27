@@ -7,6 +7,17 @@ pub struct Mesh {
     gl: Arc<Context>,
 }
 
+impl super::Drawable for Mesh {
+    fn draw(&self) -> Result<(), super::RenderError> {
+        unsafe {
+            self.gl.bind_vertex_array(Some(self.vao));
+            self.gl.draw_arrays(TRIANGLES, 0, 3);
+            self.gl.bind_vertex_array(None);
+        }
+        Ok(())
+    }
+}
+
 impl Drop for Mesh {
     fn drop(&mut self) {
         unsafe {
@@ -20,10 +31,10 @@ impl Mesh {
     pub fn quad(renderer: &super::Renderer) -> Self {
         unsafe {
             let quad_vertices = [
-                -1.0,-1.0,
-                 1.0,-1.0,
-                 1.0, 1.0,
-                -1.0, 1.0,
+                -1.0,-1.0,0.0,
+                 1.0,-1.0,0.0,
+                 1.0, 1.0,0.0,
+                -1.0, 1.0,0.0,
             ];
             let quad_vertices_u8: &[u8] = core::slice::from_raw_parts(
                 quad_vertices.as_ptr() as *const u8,
@@ -40,7 +51,7 @@ impl Mesh {
             let vao = gl.create_vertex_array().expect("Failed to create VAO!");
             gl.bind_vertex_array(Some(vao));
             gl.enable_vertex_attrib_array(0);
-            gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 8, 0);
+            gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 8, 0);
 
             Self {
                 vbo: vbo,

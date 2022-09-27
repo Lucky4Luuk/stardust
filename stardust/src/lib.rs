@@ -69,7 +69,10 @@ impl<A: App> State<A> {
     }
 
     fn render(&mut self) -> Result<(), rendering::RenderError> {
-        self.renderer.render()?;
+        self.renderer.start_frame()?;
+        let ctx = Context::new(&self.renderer, &self.event_loop);
+        self.app.render(&ctx);
+        self.renderer.end_frame()?;
         Ok(())
     }
 }
