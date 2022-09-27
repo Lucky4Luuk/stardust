@@ -51,7 +51,7 @@ impl Mesh {
             let vao = gl.create_vertex_array().expect("Failed to create VAO!");
             gl.bind_vertex_array(Some(vao));
             gl.enable_vertex_attrib_array(0);
-            gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 8, 0);
+            gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 12, 0);
 
             Self {
                 vbo: vbo,

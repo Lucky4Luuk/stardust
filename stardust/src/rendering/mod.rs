@@ -29,7 +29,9 @@ impl Renderer {
     pub fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
-        let context = GlContext::create(window, GlConfig::default()).expect("Failed to create OpenGL context!");
+        let mut conf = GlConfig::default();
+        conf.version = (4,5);
+        let context = GlContext::create(window, conf).expect("Failed to create OpenGL context!");
         let gl = unsafe {
             context.make_current();
             let gl = Context::from_loader_function(|symbol| context.get_proc_address(symbol) as *const _);
@@ -55,10 +57,9 @@ impl Renderer {
     }
 
     pub fn start_frame(&mut self) -> Result<(), RenderError> {
+        self.context.make_current();
+        self.is_context_current = true;
         unsafe {
-            self.context.make_current();
-            self.is_context_current = true;
-
             self.gl.clear_color(0.2,0.2,0.2,1.0);
             self.gl.clear(COLOR_BUFFER_BIT);
         }
