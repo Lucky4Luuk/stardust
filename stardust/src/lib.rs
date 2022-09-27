@@ -129,16 +129,16 @@ pub fn run<A: App + 'static, F: Fn(&Context) -> A>(f: F) {
                 Err(e) => eprintln!("{:?}", e),
             }
         },
+        Event::UserEvent(engine_event) => {
+            match engine_event {
+                EngineEvent::SetTitle(title) => window.set_title(&title),
+            }
+        },
         Event::MainEventsCleared => {
             state.update();
             // RedrawRequested will only trigger once, unless we manually
             // request it.
             window.request_redraw();
-        },
-        Event::UserEvent(engine_event) => {
-            match engine_event {
-                EngineEvent::SetTitle(title) => window.set_title(&title),
-            }
         },
         _ => {}
     });
