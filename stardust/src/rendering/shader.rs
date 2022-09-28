@@ -17,6 +17,14 @@ pub struct Shader {
     gl: Arc<Context>
 }
 
+impl Drop for Shader {
+    fn drop(&mut self) {
+        unsafe {
+            self.gl.delete_program(self.program);
+        }
+    }
+}
+
 impl Shader {
     pub fn new(renderer: &super::Renderer, vs: &str, fs: &str) -> Self {
         unsafe {
