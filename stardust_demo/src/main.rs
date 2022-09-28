@@ -26,7 +26,8 @@ impl App for Demo {
     fn update(&self, ctx: &Context) {}
     fn render(&self, ctx: &Context) {
         self.shader.while_bound(|| {
-            self.mesh.draw();
+            self.mesh.draw()?;
+            Ok(())
         });
     }
 }

@@ -68,9 +68,10 @@ impl Shader {
     }
 
     /// Runs a closure while the shader is bound
-    pub fn while_bound<F: FnOnce()>(&self, f: F) {
+    pub fn while_bound<F: FnOnce() -> Result<(), super::RenderError>>(&self, f: F) -> Result<(), super::RenderError> {
         self.bind();
-        f();
+        f()?;
         self.unbind();
+        Ok(())
     }
 }
