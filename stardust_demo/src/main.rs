@@ -1,5 +1,5 @@
 #[macro_use] extern crate log;
-use stardust::{*, rendering::*};
+use foxtail::prelude::*;
 
 const VS: &'static str = include_str!("../shaders/vs.glsl");
 const FS: &'static str = include_str!("../shaders/fs.glsl");
@@ -23,8 +23,8 @@ impl Demo {
 }
 
 impl App for Demo {
-    fn update(&self, ctx: &Context) {}
-    fn render(&self, ctx: &Context) {
+    fn update(&mut self, ctx: &Context) {}
+    fn render(&mut self, ctx: &Context) {
         self.shader.while_bound(|| {
             self.mesh.draw()?;
             Ok(())
@@ -33,5 +33,5 @@ impl App for Demo {
 }
 
 fn main() {
-    stardust::run(|ctx| Demo::new(ctx))
+    foxtail::run(|ctx| Demo::new(ctx))
 }
