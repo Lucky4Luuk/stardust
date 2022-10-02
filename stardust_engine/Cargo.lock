@@ -956,7 +956,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "stardust_demo"
+name = "stardust_engine"
 version = "0.1.0"
 dependencies = [
  "foxtail",

@@ -18,8 +18,12 @@ impl Default for Camera {
 }
 
 impl Camera {
-    pub fn set_fov(&mut self, fov_deg_y: f32) {
+    pub fn set_fov_deg(&mut self, fov_deg_y: f32) {
         self.fov_rad_y = fov_deg_y / 180.0 * std::f32::consts::PI;
+    }
+
+    pub fn set_fov_rad(&mut self, fov_rad_y: f32) {
+        self.fov_rad_y = fov_rad_y;
     }
 
     pub fn matrix_view(&self) -> Mat4 {

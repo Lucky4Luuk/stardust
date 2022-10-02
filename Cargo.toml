@@ -3,5 +3,5 @@ members = [
 	"stardust_common",
 ]
 exclude = [
-	"stardust_demo",
+	"stardust_engine",
 ]
