@@ -8,14 +8,21 @@
 
 use foxtail::prelude::*;
 
-pub struct World {
+pub mod voxel;
+pub mod brick;
 
+pub struct World {
+    stream_buffer: FixedSizeBuffer<voxel::Voxel>,
+    brick_map: FixedSizeBuffer<brick::Brick>,
 }
 
 impl World {
     pub fn new(ctx: &Context) -> Self {
+        let stream_buffer = FixedSizeBuffer::new(ctx, 256);
+        let brick_map = FixedSizeBuffer::new(ctx, 1024);
         Self {
-            
+            stream_buffer: stream_buffer,
+            brick_map: brick_map
         }
     }
 }
