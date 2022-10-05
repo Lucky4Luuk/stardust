@@ -961,6 +961,15 @@ version = "0.1.0"
 dependencies = [
  "foxtail",
  "log",
+ "stardust_world",
+]
+
+[[package]]
+name = "stardust_world"
+version = "0.1.0"
+dependencies = [
+ "foxtail",
+ "log",
 ]
 
 [[package]]

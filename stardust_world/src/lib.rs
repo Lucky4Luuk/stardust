@@ -6,6 +6,8 @@
 // 3. While rendering a frame, every untouched brick gets freed up and put back into the pool of free bricks
 //    to allow new voxels to be allocated again? Also needs to be combined with distance-based unloading
 
+#[macro_use] extern crate log;
+
 use foxtail::prelude::*;
 
 pub mod voxel;
@@ -18,6 +20,12 @@ pub struct World {
 
 impl World {
     pub fn new(ctx: &Context) -> Self {
+        let voxel = voxel::Voxel::new([64,128,96], 196, false, 243);
+        debug!("rgb: {:?}", voxel.rgb());
+        debug!("roughness: {}", voxel.roughness());
+        debug!("metalic: {}", voxel.metalic());
+        debug!("opacity: {}", voxel.opacity());
+
         let stream_buffer = FixedSizeBuffer::new(ctx, 256);
         let brick_map = FixedSizeBuffer::new(ctx, 1024);
         Self {

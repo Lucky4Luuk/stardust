@@ -7,6 +7,7 @@ const FS: &'static str = include_str!("../shaders/fs.glsl");
 pub struct Engine {
     mesh: mesh::Mesh,
     shader: shader::Shader,
+    world: stardust_world::World,
 }
 
 impl Engine {
@@ -15,9 +16,11 @@ impl Engine {
         trace!("Demo created!");
         let mesh = mesh::Mesh::quad(&ctx);
         let shader = shader::Shader::new(&ctx, VS, FS);
+        let world = stardust_world::World::new(&ctx);
         Self {
             mesh: mesh,
             shader: shader,
+            world: world,
         }
     }
 }
