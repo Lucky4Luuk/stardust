@@ -6,4 +6,6 @@ edition = "2021"
 [dependencies]
 log = "0.4"
 foxtail = { path = "../../foxtail/foxtail" }
+
+stardust_common = { path = "../stardust_common" }
 stardust_world = { path = "../stardust_world" }

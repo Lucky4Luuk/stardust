@@ -411,6 +411,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.21.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "518faa5064866338b013ff9b2350dc318e14cc4fcd6cb8206d7e7c9886c98815"
+
+[[package]]
 name = "glow"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,11 +962,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "stardust_common"
+version = "0.1.0"
+dependencies = [
+ "glam",
+]
+
+[[package]]
 name = "stardust_engine"
 version = "0.1.0"
 dependencies = [
  "foxtail",
  "log",
+ "stardust_common",
  "stardust_world",
 ]
 
