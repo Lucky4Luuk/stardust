@@ -31,7 +31,7 @@ impl Voxel {
     }
 
     pub fn opacity(&self) -> u8 {
-        ((self.0 >> 24) as u8 & 0b1111_1110)
+        (self.0 >> 24) as u8 & 0b1111_1110
     }
 
     pub fn metalic(&self) -> bool {
