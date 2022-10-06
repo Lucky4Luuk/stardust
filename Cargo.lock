@@ -353,6 +353,19 @@ dependencies = [
  "ahash",
  "epaint",
  "nohash-hasher",
+ "tracing",
+]
+
+[[package]]
+name = "egui-winit"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07ddc525334c416e11580123e147b970f738507f427c9fb1cd09ea2dd7416a3a"
+dependencies = [
+ "egui",
+ "instant",
+ "tracing",
+ "winit",
 ]
 
 [[package]]
@@ -363,6 +376,7 @@ checksum = "ad77d4a00402bae9658ee64be148f4b2a0b38e4fc7874970575ca01ed1c5b75d"
 dependencies = [
  "bytemuck",
  "egui",
+ "egui-winit",
  "glow",
  "memoffset",
  "tracing",
@@ -479,10 +493,22 @@ checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 name = "foxtail"
 version = "0.1.0"
 dependencies = [
+ "foxtail_ui",
  "glow",
  "log",
  "pretty_env_logger",
  "raw-gl-context",
+ "winit",
+]
+
+[[package]]
+name = "foxtail_ui"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "egui_glow",
+ "glow",
+ "log",
  "winit",
 ]
 
@@ -1099,10 +1125,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "stardust_ui"
+name = "stardust_engine"
 version = "0.1.0"
 dependencies = [
- "egui_glow",
+ "egui",
+ "foxtail",
+ "log",
+ "stardust_common",
+ "stardust_world",
 ]
 
 [[package]]

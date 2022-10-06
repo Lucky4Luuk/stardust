@@ -1,4 +1,5 @@
 #[macro_use] extern crate log;
+use std::time::Instant;
 use foxtail::prelude::*;
 
 pub mod renderer;
@@ -6,6 +7,8 @@ pub mod renderer;
 pub struct Engine {
     world: stardust_world::World,
     renderer: renderer::Renderer,
+    delta_s: f32,
+    last_frame: Instant,
 }
 
 impl Engine {
@@ -17,18 +20,28 @@ impl Engine {
         Self {
             world: world,
             renderer: renderer,
+            delta_s: 0.0,
+            last_frame: Instant::now(),
         }
     }
 }
 
 impl App for Engine {
-    fn update(&mut self, ctx: &mut Context) {}
+    fn update(&mut self, ctx: &mut Context) {
+        let now = Instant::now();
+        let elapsed = now - self.last_frame;
+        self.delta_s = elapsed.as_secs_f32();
+        self.last_frame = now;
+    }
+
     fn render(&mut self, ctx: &mut Context) {
         // self.world.process();
         self.renderer.render(ctx, &mut self.world);
         ctx.draw_ui(|egui_ctx| {
-            egui::Window::new("side panel").show(egui_ctx, |ui| {
-                ui.heading("test");
+            egui::Window::new("debug window").show(egui_ctx, |ui| {
+                ui.heading("Debug");
+                ui.label(&format!("FPS: {}", 1.0 / self.delta_s));
+                ui.label(&format!("ms: {}", self.delta_s * 1000.0));
             });
         });
     }

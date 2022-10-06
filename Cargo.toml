@@ -1,8 +1,6 @@
 [workspace]
 members = [
+	"stardust_engine",
 	"stardust_common",
 	"stardust_world",
-]
-exclude = [
-	"stardust_engine",
 ]
