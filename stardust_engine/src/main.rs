@@ -26,10 +26,10 @@ impl App for Engine {
     fn render(&mut self, ctx: &mut Context) {
         // self.world.process();
         self.renderer.render(ctx, &mut self.world);
-        ctx.fox_ui.draw(|egui_ctx| {
-            // egui::SidePanel::left("side panel").show(egui_ctx, |ui| {
-            //     ui.heading("test");
-            // });
+        ctx.draw_ui(|egui_ctx| {
+            egui::Window::new("side panel").show(egui_ctx, |ui| {
+                ui.heading("test");
+            });
         });
     }
 }
