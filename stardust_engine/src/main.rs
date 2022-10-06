@@ -9,7 +9,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    fn new(ctx: &Context) -> Self {
+    fn new(ctx: &mut Context) -> Self {
         ctx.set_window_title("Stardust engine");
         trace!("Demo created!");
         let world = stardust_world::World::new(ctx);
@@ -22,10 +22,15 @@ impl Engine {
 }
 
 impl App for Engine {
-    fn update(&mut self, ctx: &Context) {}
-    fn render(&mut self, ctx: &Context) {
+    fn update(&mut self, ctx: &mut Context) {}
+    fn render(&mut self, ctx: &mut Context) {
         // self.world.process();
         self.renderer.render(ctx, &mut self.world);
+        ctx.fox_ui.draw(|egui_ctx| {
+            // egui::SidePanel::left("side panel").show(egui_ctx, |ui| {
+            //     ui.heading("test");
+            // });
+        });
     }
 }
 
