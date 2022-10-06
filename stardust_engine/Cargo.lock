@@ -984,6 +984,7 @@ version = "0.1.0"
 dependencies = [
  "foxtail",
  "log",
+ "stardust_common",
 ]
 
 [[package]]

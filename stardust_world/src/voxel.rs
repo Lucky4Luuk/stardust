@@ -1,8 +1,24 @@
+use stardust_common::math::*;
+
+#[repr(C)]
+pub struct VoxelWithPos((UVec4, Voxel));
+impl VoxelWithPos {
+    pub fn from_voxel(voxel: Voxel, pos: UVec3) -> Self {
+        Self((uvec4(pos.x, pos.y, pos.z, 0), voxel))
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
 pub struct Voxel(u32);
 
 impl Voxel {
-    pub(crate) fn as_u16(&self) -> u32 {
+    pub(crate) fn as_u32(&self) -> u32 {
         self.0
+    }
+
+    pub fn empty() -> Self {
+        Self::new([0;3],0,false,0)
     }
 
     pub fn new(rgb: [u8; 3], roughness: u8, metalic: bool, opacity: u8) -> Self {

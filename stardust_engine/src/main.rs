@@ -24,7 +24,8 @@ impl Engine {
 impl App for Engine {
     fn update(&mut self, ctx: &Context) {}
     fn render(&mut self, ctx: &Context) {
-        self.renderer.render(&self.world);
+        // self.world.process();
+        self.renderer.render(ctx, &mut self.world);
     }
 }
 
