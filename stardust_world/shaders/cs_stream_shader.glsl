@@ -1,4 +1,5 @@
 #version 450
+#define BRICK_MAP_SIZE 128
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
@@ -21,7 +22,7 @@ layout(std430, binding = 1) buffer brick_pool {
 
 layout(std430, binding = 2) buffer brick_map {
     // Offset by 1, so 0 means not allocated
-    uint brick_pool_indices[64*64*64];
+    uint brick_pool_indices[BRICK_MAP_SIZE*BRICK_MAP_SIZE*BRICK_MAP_SIZE];
 };
 
 void main() {
@@ -32,7 +33,7 @@ void main() {
     uvec3 brick_pos = world_pos / 16;
     uvec3 brick_local_pos = world_pos % 16;
     // Get brick index and voxel index
-    uint brick_map_idx = brick_pos.x + brick_pos.y * 64 + brick_pos.z * 64 * 64;
+    uint brick_map_idx = brick_pos.x + brick_pos.y * BRICK_MAP_SIZE + brick_pos.z * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
     uint voxel_idx = brick_local_pos.x + brick_local_pos.y * 16 + brick_local_pos.z * 16 * 16;
     // Check if brick is allocated already
     // If so, modify that brick. Otherwise, find unused brick from pool and use it

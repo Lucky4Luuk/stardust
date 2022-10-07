@@ -8,6 +8,11 @@ impl VoxelWithPos {
     }
 }
 
+/// Format (bits):
+/// [0-15]  - rgb565
+/// [16-23] - roughness (will get 4 bits of emission as well)
+/// [24]    - metallic
+/// [25-31] - opacity
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Voxel(u32);
@@ -21,12 +26,12 @@ impl Voxel {
         Self::new([0;3],0,false,0)
     }
 
-    pub fn new(rgb: [u8; 3], roughness: u8, metalic: bool, opacity: u8) -> Self {
+    pub fn new(rgb: [u8; 3], roughness: u8, metallic: bool, opacity: u8) -> Self {
         let r = (rgb[0] >> 3) as u16;
         let g = (rgb[1] >> 2) as u16;
         let b = (rgb[2] >> 3) as u16;
         let rgb = r | g << 5 | b << 11;
-        let opacity_metalic: u8 = (opacity & 0b1111_1110) | (metalic as u8 & 0b0000_0001);
+        let opacity_metalic: u8 = (opacity & 0b1111_1110) | (metallic as u8 & 0b0000_0001);
         let b: u32 = (rgb as u32) | ((roughness as u32) << 16) | ((opacity_metalic as u32) << 24);
         Self(b)
     }
@@ -50,7 +55,7 @@ impl Voxel {
         (self.0 >> 24) as u8 & 0b1111_1110
     }
 
-    pub fn metalic(&self) -> bool {
+    pub fn metallic(&self) -> bool {
         ((self.0 >> 24) as u8 & 0b0000_0001) != 0
     }
 }

@@ -16,75 +16,61 @@ use stardust_common::math::*;
 pub mod voxel;
 pub mod brick;
 
-const CS_SRC: &'static str = include_str!("../shaders/cs_stream_shader.glsl");
+const BRICK_POOL_SIZE: usize = 16384;
+const BRICK_MAP_SIZE: usize = 128;
 
 pub struct World {
-    pub stream_buffer: FixedSizeBuffer<voxel::VoxelWithPos>,
-    pub brick_pool: FixedSizeBuffer<brick::Brick>,
-    pub brick_map: FixedSizeBuffer<u32>,
+    brick_pool: FixedSizeBuffer<brick::Brick>,
+    brick_map: FixedSizeBuffer<u32>,
 
-    pub stream_shader: ComputeShader,
+    brick_pool_cpu: Box<[brick::Brick]>,
+    brick_pool_flag_map: Box<[brick::BrickFlags]>,
+    brick_map_cpu: Box<[u32]>,
 }
 
 impl World {
     pub fn new(ctx: &Context) -> Self {
         debug!("Creating new world...");
-        let stream_buffer = FixedSizeBuffer::new(ctx, 2048);
-
-        // let mut voxels = Vec::new();
-        // for x in 0..64 {
-        //     for y in 0..64 {
-        //         for z in 0..64 {
-        //             let p = uvec3(30 + (x * 4) as u32, 30 + (y * 4) as u32, 30 + (z * 4) as u32);
-        //             // let c = [32+x*4,32+y*4,32+z*4];
-        //             let c = if p.x > 8 { [0,0,0] } else { [255,255,255] };
-        //             let v = voxel::Voxel::new(c, 255, false, 255);
-        //             voxels.push(voxel::VoxelWithPos::from_voxel(v, p));
-        //         }
-        //     }
-        // }
-        // stream_buffer.write(0, &voxels);
-
-        debug!("Voxel streaming buffer created!");
-        let brick_pool = FixedSizeBuffer::new(ctx, 16384);
+        let brick_pool = FixedSizeBuffer::new(ctx, BRICK_POOL_SIZE);
         debug!("Brick pool created!");
-        let brick_map = FixedSizeBuffer::new(ctx, 64*64*64);
+        let brick_map = FixedSizeBuffer::new(ctx, BRICK_MAP_SIZE*BRICK_MAP_SIZE*BRICK_MAP_SIZE);
         debug!("Brick map created!");
 
+        let mut brick_pool_cpu: Box<[brick::Brick]> = vec![brick::Brick::empty(); BRICK_POOL_SIZE].into_boxed_slice();
         let brick = brick::Brick::func(|x,y,z| {
             let x = x as u8;
             let y = y as u8;
             let z = z as u8;
             let c = [x*16,y*16,255];
-            // let c = [32+x*4,32+y*4,32+z*4];
-            // let o = if (x as f32 * 4.0).sin() * 2.0 + 8.0 > (y as f32) { 255 } else { 0 };
-            // let o = if y < 8 { 255 } else { 0 };
-            // let o = 255;
             let ox = x as i16 - 8;
             let oy = y as i16 - 8;
             let oz = z as i16 - 8;
             let o = if ox*ox+oy*oy+oz*oz > 23 { 0 } else { 255 };
             voxel::Voxel::new(c, 255, false, o)
         });
-        brick_pool.write(0, &[brick]);
-        let mut tmp = Box::new([0u32; 64*64*64]);
-        for x in 0..64 {
-            for y in 0..64 {
-                for z in 0..64 {
-                    tmp[x+y*64+z*64*64] = 1;
+        brick_pool_cpu[0] = brick;
+        let mut brick_map_cpu: Box<[u32]> = vec![0u32; BRICK_MAP_SIZE*BRICK_MAP_SIZE*BRICK_MAP_SIZE].into_boxed_slice();
+        for x in 0..BRICK_MAP_SIZE {
+            for y in 0..BRICK_MAP_SIZE {
+                for z in 0..BRICK_MAP_SIZE {
+                    brick_map_cpu[x+y*BRICK_MAP_SIZE+z*BRICK_MAP_SIZE*BRICK_MAP_SIZE] = 1;
                 }
             }
         }
-        brick_map.write(0, &tmp[..]);
 
-        let stream_shader = ComputeShader::new(ctx, CS_SRC);
-        debug!("Streaming shader compiled!");
+        let mut flag = brick::BrickFlags::empty();
+        flag.set_dirty(true);
+        let mut brick_pool_flag_map = vec![flag; BRICK_POOL_SIZE].into_boxed_slice();
+        brick_pool_flag_map[0].set_dirty(true);
+        brick_pool_flag_map[0].set_in_use(true);
 
         let mut obj = Self {
-            stream_buffer: stream_buffer,
             brick_pool: brick_pool,
             brick_map: brick_map,
-            stream_shader: stream_shader,
+
+            brick_pool_cpu: brick_pool_cpu,
+            brick_pool_flag_map: brick_pool_flag_map,
+            brick_map_cpu: brick_map_cpu,
         };
         obj.process();
         obj
@@ -101,14 +87,15 @@ impl World {
     }
 
     pub fn process(&mut self) {
-        self.stream_buffer.bind(0);
-        self.brick_pool.bind(1);
-        self.brick_map.bind(2);
+        // self.brick_pool.write(0, &self.brick_pool_cpu[..1]);
+        self.brick_pool_flag_map.iter_mut().enumerate().for_each(|(i, flag)| {
+            if flag.dirty() {
+                self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
+                flag.set_dirty(false);
+            }
+        });
 
-        self.stream_shader.dispatch([256, 1, 1]);
-
-        self.stream_buffer.unbind();
-        self.brick_pool.unbind();
-        self.brick_map.unbind();
+        // TODO: This is always uploaded, but that's very much overkill and bad for performance lol
+        self.brick_map.write(0, &self.brick_map_cpu[..]);
     }
 }

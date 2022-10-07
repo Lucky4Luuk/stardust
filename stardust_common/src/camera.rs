@@ -31,6 +31,10 @@ impl Camera {
     }
 
     pub fn matrix_projection(&self, aspect_ratio: f32) -> Mat4 {
-        Mat4::perspective_rh_gl(self.fov_rad_y, aspect_ratio, 0.0, 512.0)
+        Mat4::perspective_rh_gl(self.fov_rad_y, aspect_ratio, 0.02, 512.0)
+    }
+
+    pub fn matrix_invprojview(&self, aspect_ratio: f32) -> Mat4 {
+        (self.matrix_projection(aspect_ratio) * self.matrix_view()).inverse()
     }
 }
