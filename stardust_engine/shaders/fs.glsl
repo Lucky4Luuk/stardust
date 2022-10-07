@@ -17,16 +17,9 @@ layout(std430, binding = 1) buffer brick_map {
     uint brick_pool_indices[64*64*64];
 };
 
-bool getVoxel(ivec3 p, out vec3 color) {
-    ivec3 check_pos = p + 32*16;
-    if (check_pos.x < 0.0 || check_pos.y < 0.0 || check_pos.z < 0.0) return false;
-    if (check_pos.x >= 64.0*16.0 || check_pos.y >= 64.0*16.0 || check_pos.z >= 64.0*16.0) return false;
+bool getVoxel(ivec3 p, out vec3 color, uint brick_pool_idx) {
     uvec3 world_pos = uvec3(p + 32*16);
-    uvec3 brick_pos = world_pos / 16;
     uvec3 local_pos = world_pos % 16;
-    uint brick_map_idx = brick_pos.x + brick_pos.y * 64 + brick_pos.z * 64 * 64;
-    uint brick_pool_idx = brick_pool_indices[brick_map_idx];
-    if (brick_pool_idx == 0) return false;
     uint voxel_idx = local_pos.x + local_pos.y * 16 + local_pos.z * 16 * 16;
     uint opacity_metalic = (bricks[brick_pool_idx - 1].voxels[voxel_idx] & (0xFF << 24)) >> 24;
     if ((opacity_metalic << 1) == 0) return false;
@@ -42,30 +35,37 @@ bool getVoxel(ivec3 p, out vec3 color) {
 }
 
 bool getBrick(ivec3 p, out uint brick_pool_idx) {
+    // ivec3 checked_pos = (p + 32*16) / 16;
+    // if (min(checked_pos.x, min(checked_pos.y, checked_pos.z)) < 0 || max(checked_pos.x, max(checked_pos.y, checked_pos.z)) > 63) return false;
     uvec3 world_pos = uvec3(p + 32*16);
     uvec3 brick_pos = world_pos / 16;
     uint brick_map_idx = brick_pos.x + brick_pos.y * 64 + brick_pos.z * 64 * 64;
     brick_pool_idx = brick_pool_indices[brick_map_idx];
     if (brick_pool_idx == 0) return false;
-    brick_pool_idx -= 1;
     return true;
 }
 
 bool traceBricks(inout vec3 ro, vec3 rd, inout bvec3 mask, out vec3 color) {
-    ivec3 mapPos = ivec3(floor(ro + 0.));
+    ivec3 worldPos = ivec3(floor(ro + 0.));
     vec3 deltaDist = abs(vec3(length(rd)) / rd);
 	ivec3 rayStep = ivec3(sign(rd));
-	vec3 sideDist = (sign(rd) * (vec3(mapPos) - ro) + (sign(rd) * 0.5) + 0.5) * deltaDist;
+	vec3 sideDist = (sign(rd) * (vec3(worldPos) - ro) + (sign(rd) * 0.5) + 0.5) * deltaDist;
+    uint brick_idx;
 
-    for (int i = 0; i < 256; i++) {
-        if (getVoxel(mapPos, color)) {
-            float d = length(vec3(mask) * (sideDist - deltaDist)) / length(rd);
-            ro = vec3(mapPos) + rd * d;
-            return true;
+    for (int i = 0; i < 512; i++) {
+        if (!getBrick(worldPos, brick_idx)) {
+            for (int j = 0; j < 16; j++) {
+                mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
+                sideDist += vec3(mask) * deltaDist;
+                worldPos += ivec3(vec3(mask)) * rayStep;
+            }
+        } else {
+            // Brick found, step through voxel grid
+            if (getVoxel(worldPos, color, brick_idx)) return true;
+            mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
+            sideDist += vec3(mask) * deltaDist;
+            worldPos += ivec3(vec3(mask)) * rayStep;
         }
-        mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
-        sideDist += vec3(mask) * deltaDist;
-		mapPos += ivec3(vec3(mask)) * rayStep;
     }
     return false;
 }
@@ -73,12 +73,14 @@ bool traceBricks(inout vec3 ro, vec3 rd, inout bvec3 mask, out vec3 color) {
 void main() {
     FragColor = vec4(1.0, 0.1, 0.2, 1.0);
 
+    float aspect = 1280.0/720.0;
     vec2 screenPos = uv * 2.0 - 1.0;
     vec3 cameraDir = vec3(0.0, 0.0, 0.8);
     vec3 cameraPlaneU = vec3(1.0, 0.0, 0.0);
-	vec3 cameraPlaneV = vec3(0.0, 1.0, 0.0);
+	vec3 cameraPlaneV = vec3(0.0, 1.0, 0.0) / aspect;
     vec3 rayDir = cameraDir + screenPos.x * cameraPlaneU + screenPos.y * cameraPlaneV;
-	vec3 rayPos = vec3(0.0, 0.0, -76.0);
+    rayDir = normalize(rayDir);
+	vec3 rayPos = vec3(0.0, 0.0, -128.0);
 
     bvec3 mask;
     vec3 color;

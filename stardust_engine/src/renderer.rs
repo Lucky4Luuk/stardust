@@ -1,6 +1,5 @@
 use foxtail::prelude::*;
 
-use stardust_common::math::*;
 use stardust_world::*;
 
 const VS: &'static str = include_str!("../shaders/vs.glsl");
@@ -23,7 +22,7 @@ impl Renderer {
 
     pub fn render(&self, ctx: &Context, world: &mut World) {
         ctx.fence();
-        self.shader.while_bound(|| {
+        let _ = self.shader.while_bound(|| {
             world.bind();
             self.mesh.draw()?;
             world.unbind();

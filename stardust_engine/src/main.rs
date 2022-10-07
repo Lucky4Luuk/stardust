@@ -37,11 +37,13 @@ impl App for Engine {
     fn render(&mut self, ctx: &mut Context) {
         // self.world.process();
         self.renderer.render(ctx, &mut self.world);
+        let size = ctx.size();
         ctx.draw_ui(|egui_ctx| {
             egui::Window::new("debug window").show(egui_ctx, |ui| {
                 ui.heading("Debug");
                 ui.label(&format!("FPS: {}", 1.0 / self.delta_s));
                 ui.label(&format!("ms: {}", self.delta_s * 1000.0));
+                ui.label(&format!("render resolution: {:?}", size));
             });
         });
     }

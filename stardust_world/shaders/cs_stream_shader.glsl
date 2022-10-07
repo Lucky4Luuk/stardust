@@ -8,7 +8,7 @@ struct VoxelWithPos {
 };
 
 layout(std430, binding = 0) buffer stream_buffer {
-    VoxelWithPos voxels[256];
+    VoxelWithPos voxels[2048];
 };
 
 struct Brick {
