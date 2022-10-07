@@ -84,29 +84,12 @@ void main() {
     vec3 rayPos = rayPos;
     vec3 rayDir = (invprojview * vec4(pos * (far - near), far + near, far - near)).xyz;
 
-    // float aspect = 1280.0/720.0;
-    // vec2 screenPos = uv * 2.0 - 1.0;
-    // vec3 cameraDir = vec3(0.0, 0.0, 0.8);
-    // vec3 cameraPlaneU = vec3(1.0, 0.0, 0.0);
-	// vec3 cameraPlaneV = vec3(0.0, 1.0, 0.0) / aspect;
-    // vec3 rayDir = cameraDir + screenPos.x * cameraPlaneU + screenPos.y * cameraPlaneV;
-
     rayDir = normalize(rayDir);
 
     bvec3 mask;
     vec3 color;
     bool hit = traceBricks(rayPos, rayDir, mask, color);
     if (hit) {
-        // vec3 color;
-        // if (mask.x) {
-        //     color = vec3(0.5);
-        // }
-        // if (mask.y) {
-        //     color = vec3(1.0);
-        // }
-        // if (mask.z) {
-        //     color = vec3(0.75);
-        // }
         FragColor = vec4(color, 1.0);
     }
 }
