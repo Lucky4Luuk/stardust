@@ -11,7 +11,7 @@ struct Brick {
 };
 
 layout(std430, binding = 0) buffer brick_pool {
-    Brick bricks[1024];
+    Brick bricks[];
 };
 
 layout(std430, binding = 1) buffer brick_map {

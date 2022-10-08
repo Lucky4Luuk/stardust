@@ -16,15 +16,18 @@ use stardust_common::math::*;
 pub mod voxel;
 pub mod brick;
 
-const BRICK_POOL_SIZE: usize = 16384;
+use voxel::*;
+use brick::*;
+
+const BRICK_POOL_SIZE: usize = 32768;
 const BRICK_MAP_SIZE: usize = 128;
 
 pub struct World {
-    brick_pool: FixedSizeBuffer<brick::Brick>,
+    brick_pool: FixedSizeBuffer<Brick>,
     brick_map: FixedSizeBuffer<u32>,
 
-    brick_pool_cpu: Box<[brick::Brick]>,
-    brick_pool_flag_map: Box<[brick::BrickFlags]>,
+    brick_pool_cpu: Box<[Brick]>,
+    brick_pool_flag_map: Box<[BrickFlags]>,
     brick_map_cpu: Box<[u32]>,
 }
 
@@ -36,8 +39,8 @@ impl World {
         let brick_map = FixedSizeBuffer::new(ctx, BRICK_MAP_SIZE*BRICK_MAP_SIZE*BRICK_MAP_SIZE);
         debug!("Brick map created!");
 
-        let mut brick_pool_cpu: Box<[brick::Brick]> = vec![brick::Brick::empty(); BRICK_POOL_SIZE].into_boxed_slice();
-        let brick = brick::Brick::func(|x,y,z| {
+        let mut brick_pool_cpu: Box<[Brick]> = vec![Brick::empty(); BRICK_POOL_SIZE].into_boxed_slice();
+        let brick = Brick::func(|x,y,z| {
             let x = x as u8;
             let y = y as u8;
             let z = z as u8;
@@ -53,16 +56,12 @@ impl World {
         for x in 0..BRICK_MAP_SIZE {
             for y in 0..BRICK_MAP_SIZE {
                 for z in 0..BRICK_MAP_SIZE {
-                    let ox = x as isize - (BRICK_MAP_SIZE/2) as isize;
-                    let oy = y as isize - (BRICK_MAP_SIZE/2) as isize;
-                    let oz = z as isize - (BRICK_MAP_SIZE/2) as isize;
-                    let i = if ox*ox+oy*oy+oz*oz > 16*16 { 0 } else { 1 };
-                    brick_map_cpu[x+y*BRICK_MAP_SIZE+z*BRICK_MAP_SIZE*BRICK_MAP_SIZE] = i;
+                    brick_map_cpu[x+y*BRICK_MAP_SIZE+z*BRICK_MAP_SIZE*BRICK_MAP_SIZE] = 0;
                 }
             }
         }
 
-        let mut flag = brick::BrickFlags::empty();
+        let mut flag = BrickFlags::empty();
         flag.set_dirty(true);
         let mut brick_pool_flag_map = vec![flag; BRICK_POOL_SIZE].into_boxed_slice();
         brick_pool_flag_map[0].set_dirty(true);
@@ -78,6 +77,34 @@ impl World {
         };
         obj.process();
         obj
+    }
+
+    pub fn set_voxel(&mut self, voxel: Voxel, world_pos: UVec3) {
+        let brick_pos = world_pos / 16;
+        let local_pos = world_pos % 16;
+        let brick_pos_1d = brick_pos.x as usize + brick_pos.y as usize * BRICK_MAP_SIZE + brick_pos.z as usize * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
+        let brick_pool_idx = self.brick_map_cpu[brick_pos_1d] as usize;
+        if brick_pool_idx == 0 {
+            // Brick not yet allocated
+
+            // Step 1: Find free brick
+            let mut free_brick_idx = 0;
+            self.brick_pool_flag_map.iter().enumerate().for_each(|(i, flag)| {
+                if !flag.in_use() {
+                    free_brick_idx = i;
+                }
+            });
+            if free_brick_idx == 0 {
+                error!("Failed to place voxel in world! No free bricks left :(");
+                todo!("Resize brick buffer?");
+            }
+
+            // Step 2: Allocate brick
+        } else {
+            // Brick already allocated
+            let brick = &mut self.brick_pool_cpu[brick_pool_idx - 1];
+            brick.set_voxel(voxel, local_pos);
+        }
     }
 
     pub fn bind(&mut self) {
