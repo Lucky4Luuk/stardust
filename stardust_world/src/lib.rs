@@ -53,7 +53,11 @@ impl World {
         for x in 0..BRICK_MAP_SIZE {
             for y in 0..BRICK_MAP_SIZE {
                 for z in 0..BRICK_MAP_SIZE {
-                    brick_map_cpu[x+y*BRICK_MAP_SIZE+z*BRICK_MAP_SIZE*BRICK_MAP_SIZE] = 1;
+                    let ox = x as isize - (BRICK_MAP_SIZE/2) as isize;
+                    let oy = y as isize - (BRICK_MAP_SIZE/2) as isize;
+                    let oz = z as isize - (BRICK_MAP_SIZE/2) as isize;
+                    let i = if ox*ox+oy*oy+oz*oz > 16*16 { 0 } else { 1 };
+                    brick_map_cpu[x+y*BRICK_MAP_SIZE+z*BRICK_MAP_SIZE*BRICK_MAP_SIZE] = i;
                 }
             }
         }

@@ -57,7 +57,7 @@ bool traceBricks(inout vec3 ro, vec3 rd, inout bvec3 mask, out vec3 color) {
 	vec3 sideDist = (sign(rd) * (vec3(worldPos) - ro) + (sign(rd) * 0.5) + 0.5) * deltaDist;
     uint brick_idx;
 
-    for (int i = 0; i < 512; i++) {
+    for (int i = 0; i < 1024; i++) {
         if (!getBrick(worldPos, brick_idx)) {
             for (int j = 0; j < 16; j++) {
                 mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
