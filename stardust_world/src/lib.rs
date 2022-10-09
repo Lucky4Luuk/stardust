@@ -86,20 +86,26 @@ impl World {
         let brick_pool_idx = self.brick_map_cpu[brick_pos_1d] as usize;
         if brick_pool_idx == 0 {
             // Brick not yet allocated
-
             // Step 1: Find free brick
             let mut free_brick_idx = 0;
-            self.brick_pool_flag_map.iter().enumerate().for_each(|(i, flag)| {
+            for (i, flag) in self.brick_pool_flag_map.iter().enumerate() {
                 if !flag.in_use() {
-                    free_brick_idx = i;
+                    free_brick_idx = i+1;
+                    break;
                 }
-            });
+            }
             if free_brick_idx == 0 {
                 error!("Failed to place voxel in world! No free bricks left :(");
                 todo!("Resize brick buffer?");
             }
 
             // Step 2: Allocate brick
+            self.brick_map_cpu[brick_pos_1d] = free_brick_idx as u32;
+            self.brick_pool_flag_map[free_brick_idx-1].set_dirty(true);
+            self.brick_pool_flag_map[free_brick_idx-1].set_in_use(true);
+
+            // Step 3: Set voxel in brick
+            self.brick_pool_cpu[free_brick_idx as usize - 1].set_voxel(voxel, local_pos);
         } else {
             // Brick already allocated
             let brick = &mut self.brick_pool_cpu[brick_pool_idx - 1];
