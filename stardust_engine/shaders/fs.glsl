@@ -50,6 +50,11 @@ bool getBrick(ivec3 p, out uint brick_pool_idx) {
     return true;
 }
 
+float sdBox(vec3 p, vec3 b) {
+    vec3 q = abs(p) - b;
+    return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}
+
 bool traceBricks(inout vec3 ro, vec3 rd, inout bvec3 mask, out vec3 color) {
     ivec3 worldPos = ivec3(floor(ro + 0.));
     vec3 deltaDist = abs(vec3(length(rd)) / rd);
@@ -57,13 +62,25 @@ bool traceBricks(inout vec3 ro, vec3 rd, inout bvec3 mask, out vec3 color) {
 	vec3 sideDist = (sign(rd) * (vec3(worldPos) - ro) + (sign(rd) * 0.5) + 0.5) * deltaDist;
     uint brick_idx;
 
-    for (int i = 0; i < 1024; i++) {
+    for (int i = 0; i < 2048; i++) {
+        ivec3 brickPos = (worldPos / 16) + BRICK_MAP_SIZE/2;
+        if (min(brickPos.x, min(brickPos.y, brickPos.z)) < 0 || max(brickPos.x, max(brickPos.y, brickPos.z)) > BRICK_MAP_SIZE) {
+            color = vec3(1.0);
+            return true;
+        }
+
         if (!getBrick(worldPos, brick_idx)) {
-            for (int j = 0; j < 16; j++) {
-                mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
-                sideDist += vec3(mask) * deltaDist;
-                worldPos += ivec3(vec3(mask)) * rayStep;
-            }
+            // for (int j = 0; j < 16; j++) {
+            //     mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
+            //     sideDist += vec3(mask) * deltaDist;
+            //     worldPos += ivec3(vec3(mask)) * rayStep;
+            // }
+            int t = int(sqrt(sdBox(vec3(worldPos) + vec3(8.0) * sign(worldPos), vec3(8.0))));
+            worldPos /= t;
+            mask = lessThanEqual(sideDist.xyz, min(sideDist.yzx, sideDist.zxy));
+            sideDist += vec3(mask) * deltaDist;
+            worldPos += ivec3(vec3(mask)) * rayStep;
+            worldPos *= t;
         } else {
             // Brick found, step through voxel grid
             if (getVoxel(worldPos, color, brick_idx)) return true;
@@ -83,7 +100,6 @@ void main() {
 	float far = 512.0;
     vec3 rayPos = rayPos;
     vec3 rayDir = (invprojview * vec4(pos * (far - near), far + near, far - near)).xyz;
-
     rayDir = normalize(rayDir);
 
     bvec3 mask;

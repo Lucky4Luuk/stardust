@@ -75,6 +75,23 @@ impl World {
             brick_pool_flag_map: brick_pool_flag_map,
             brick_map_cpu: brick_map_cpu,
         };
+
+        for ix in 0..128 {
+            for iy in 0..128 {
+                for iz in 0..128 {
+                    let cx = (ix % 16) as u8;
+                    let cy = (iy % 16) as u8;
+                    let c = [cx*16,cy*16,255];
+                    let ox = ix as i16 - 64;
+                    let oy = iy as i16 - 64;
+                    let oz = iz as i16 - 64;
+                    let o = if ox*ox+oy*oy+oz*oz > 57*57 { 0 } else { 255 };
+                    let v = Voxel::new(c, 255, false, o);
+                    obj.set_voxel(v, uvec3(ix+BRICK_MAP_SIZE as u32 * 8,iy+BRICK_MAP_SIZE as u32 * 8,iz+BRICK_MAP_SIZE as u32 * 8));
+                }
+            }
+        }
+
         obj.process();
         obj
     }
@@ -96,7 +113,8 @@ impl World {
             }
             if free_brick_idx == 0 {
                 error!("Failed to place voxel in world! No free bricks left :(");
-                todo!("Resize brick buffer?");
+                return;
+                // todo!("Resize brick buffer?");
             }
 
             // Step 2: Allocate brick
@@ -124,7 +142,6 @@ impl World {
     }
 
     pub fn process(&mut self) {
-        // self.brick_pool.write(0, &self.brick_pool_cpu[..1]);
         self.brick_pool_flag_map.iter_mut().enumerate().for_each(|(i, flag)| {
             if flag.dirty() {
                 self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
