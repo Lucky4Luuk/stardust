@@ -30,7 +30,7 @@ impl Engine {
             renderer: renderer,
             camera: camera,
             delta_s: 0.0,
-            cam_rot_y: -135.2,
+            cam_rot_y: 0.0,
             last_frame: Instant::now(),
         }
     }
