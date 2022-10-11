@@ -23,7 +23,7 @@ impl Engine {
         let world = stardust_world::World::new(ctx);
         let renderer = renderer::Renderer::new(ctx);
         let mut camera = Camera::default();
-        camera.pos = vec3(0.0, 0.0, -128.0);
+        camera.pos = vec3(32.0, 32.0, 96.0);
         camera.rotation = Quat::from_rotation_y(0.0);
         Self {
             world: world,
@@ -88,6 +88,7 @@ impl App for Engine {
                 ui.label(&format!("FPS: {}", 1.0 / self.delta_s));
                 ui.label(&format!("ms: {}", self.delta_s * 1000.0));
                 ui.label(&format!("render resolution: {:?}", size));
+                ui.label(&format!("cam_pos: {:?}", self.camera.pos));
             });
         });
     }
