@@ -3,6 +3,8 @@
 #define BRICK_MAP_SIZE 128
 #define BRICK_SIZE 16
 
+#define pow2(x) (x*x)
+
 in vec2 uv;
 
 out vec4 FragColor;
@@ -68,7 +70,9 @@ vec2 boxIntersection(in vec3 ro, in vec3 rd, in vec3 rad)
     return vec2( tN, tF );
 }
 
-float traceVoxels(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hitsBrick) {
+float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color, out bool hitsBrick) {
+    float tmax2 = tmax*tmax;
+
     normal = vec3(0.0, 0.0, 0.0);
 	hitsBrick = false;
 
@@ -101,6 +105,9 @@ float traceVoxels(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hi
 
         toSide += sideDist * mask;
         gridPos += mask * sign(rd);
+
+        float d2 = pow2(gridPos.x - ro.x) + pow2(gridPos.y - ro.y);
+        if (d2 > tmax2) return -1.0;
     }
 
     return -1.0;
@@ -112,7 +119,7 @@ float trace(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hitsBric
     vec3 hit_pos = ro + rd * hit.x;
     if (hit.x < 0.0) hit_pos = ro; // Inside the box already
 
-	return traceVoxels(hit_pos + vec3(BRICK_MAP_SIZE / 2), rd, normal, color, hitsBrick);
+	return traceVoxels(hit_pos + vec3(BRICK_MAP_SIZE / 2), rd, hit.y, normal, color, hitsBrick);
 }
 
 void main() {
