@@ -1,6 +1,7 @@
 #version 450
 
 #define BRICK_MAP_SIZE 128
+#define BRICK_SIZE 16
 
 in vec2 uv;
 
@@ -67,74 +68,55 @@ vec2 boxIntersection(in vec3 ro, in vec3 rd, in vec3 rad)
     return vec2( tN, tF );
 }
 
-// Trace at voxel layer, inside a brick
-bool traceVoxels(vec3 ro, vec3 rd, uint brick_idx, out vec3 color) {
-    // Steps:
-    // 1. Get current voxel location
-    // 2. Check if voxel exists, yes -> return true
-    // 3. Get voxel box intersections, no hits -> return false?
-    // 4. Move raypos to exit intersection
+float traceVoxels(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hitsBrick) {
+    normal = vec3(0.0, 0.0, 0.0);
+	hitsBrick = false;
 
-    float t = 0.0;
+    vec3 gridPos = floor(ro);
+    vec3 sideDist = abs(length(rd)/rd);
+    vec3 toSide = ((sign(rd) * 0.5 + 0.5) - fract(ro)) / rd;
 
-    for (int i = 0; i < 32; i++) {
-        vec3 ray_pos = ro + rd * t;
-        vec3 voxel_pos = floor(ray_pos);
+    float dist;
+    vec3 mask;
+	uint brick_pool_idx;
 
-        if (getVoxel(ivec3(voxel_pos), color, brick_idx)) return true;
+    for(int i = 0; i < 200;) {
+        ivec3 brickPos = ivec3(floor(gridPos / float(BRICK_SIZE)));
+        if(getBrick(brickPos, brick_pool_idx)) {
+			hitsBrick = true;
 
-        vec2 hit = boxIntersection(ray_pos - voxel_pos, rd, vec3(0.5));
-        // No intersection
-        if (hit.y < 0.0) return false;
+            if(getVoxel(ivec3(gridPos), color, brick_pool_idx)) return dist;
 
-        t += hit.y;
-    }
-
-    return false;
-}
-
-// Trace at brick layer
-bool traceBricks(vec3 ro, vec3 rd, out vec3 color) {
-    // Steps:
-    // 1. Get current brick location
-    // 2. Check if brick is allocated, yes -> traceVoxels()
-    // 3. Get brick box intersections, no hits -> return false?
-    // 4. Move raypos to exit intersection
-
-    uint brick_idx;
-    float t = 0.0;
-
-    for (int i = 0; i < 256; i++) {
-        vec3 ray_pos = ro + rd * t;
-        vec3 brick_pos = floor(ray_pos / 16.0);
-
-        if (getBrick(ivec3(brick_pos), brick_idx)) {
-            if (!traceVoxels(ray_pos, rd, brick_idx, color)) color = vec3(0.0, 0.0, 1.0);
-            return true;
+            mask = vec3(lessThanEqual(toSide.xyz, min(toSide.yzx, toSide.zxy)));
+            dist = dot(toSide * mask, vec3(1.0));
+            normal = mask * -sign(rd);
+			++i;
+        } else {
+            vec3 toExit = ((sign(rd) * 0.5 + 0.5 + vec3(brickPos)) * float(BRICK_SIZE) - ro) / rd;
+            normal = -sign(rd) * vec3(lessThanEqual(toExit.xyz, min(toExit.yzx, toExit.zxy)));
+            dist = dot(abs(normal), toExit);
+            mask = abs(floor(ro + rd * dist - normal * 0.1) - gridPos);
+			i += max(int(mask.x + mask.y + mask.z), 1);
         }
 
-        vec2 hit = boxIntersection(ray_pos - brick_pos * 16.0, rd, vec3(8.0));
-        // No intersection
-        if (hit.y < 0.0) return false;
-
-        t += hit.y;
+        toSide += sideDist * mask;
+        gridPos += mask * sign(rd);
     }
 
-    return false;
+    return -1.0;
 }
 
-bool trace(vec3 ro, vec3 rd, out vec3 color) {
-    vec2 hit = boxIntersection(ro, rd, vec3(BRICK_MAP_SIZE / 2));
-    if (hit.y < 0.0) return false; // No intersection
+float trace(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hitsBrick) {
+	vec2 hit = boxIntersection(ro, rd, vec3(BRICK_MAP_SIZE / 2));
+    if (hit.y < 0.0) return -1.0; // No intersection
     vec3 hit_pos = ro + rd * hit.x;
     if (hit.x < 0.0) hit_pos = ro; // Inside the box already
-    if (!traceBricks(hit_pos, rd, color)) color = vec3(0.0, 1.0, 0.0);
-    return true;
-    // return traceBricks(hit_pos, rd, color);
+
+	return traceVoxels(hit_pos + vec3(BRICK_MAP_SIZE / 2), rd, normal, color, hitsBrick);
 }
 
 void main() {
-    FragColor = vec4(1.0, 0.1, 0.2, 1.0);
+    FragColor = vec4(0.0, 0.0, 0.0, 1.0);
 
     vec2 pos = uv * 2.0 - 1.0;
 	float near = 0.02;
@@ -142,10 +124,13 @@ void main() {
     vec3 rayDir = (invprojview * vec4(pos * (far - near), far + near, far - near)).xyz;
     rayDir = normalize(rayDir);
 
-    bvec3 mask;
-    vec3 color = vec3(0.0);
-    bool hit = trace(rayPos, rayDir, color);
-    if (hit) {
+    vec3 color;
+	vec3 normal;
+	bool hitsBrick;
+    float hitDist = trace(rayPos, rayDir, normal, color, hitsBrick);
+    if (hitDist > 0.0) {
         FragColor = vec4(color, 1.0);
-    }
+    } else if (hitsBrick) {
+		FragColor = vec4(0.2, 0.2, 0.2, 1.0);
+	}
 }

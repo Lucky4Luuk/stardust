@@ -23,7 +23,7 @@ impl Engine {
         let world = stardust_world::World::new(ctx);
         let renderer = renderer::Renderer::new(ctx);
         let mut camera = Camera::default();
-        camera.pos = vec3(32.0, 32.0, 96.0);
+        camera.pos = vec3(0.0, 0.0, 164.0);
         camera.rotation = Quat::from_rotation_y(0.0);
         Self {
             world: world,
