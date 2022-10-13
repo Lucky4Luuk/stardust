@@ -118,7 +118,6 @@ float trace(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hitsBric
     if (hit.y < 0.0) return -1.0; // No intersection
     vec3 hit_pos = ro + rd * hit.x;
     if (hit.x < 0.0) hit_pos = ro; // Inside the box already
-
 	return traceVoxels(hit_pos + vec3(BRICK_MAP_SIZE / 2), rd, hit.y, normal, color, hitsBrick);
 }
 
