@@ -10,7 +10,8 @@ impl VoxelWithPos {
 
 /// Format (bits):
 /// [0-15]  - rgb565
-/// [16-23] - roughness (will get 4 bits of emission as well)
+/// [16-19] - roughness
+/// [20-23] - emissive
 /// [24]    - metallic
 /// [25-31] - opacity
 #[repr(C)]
@@ -31,8 +32,9 @@ impl Voxel {
         let g = (rgb[1] >> 2) as u16;
         let b = (rgb[2] >> 3) as u16;
         let rgb = r | g << 5 | b << 11;
+        let roughness_emissive = (roughness >> 4) | (emissive >> 4 << 4);
         let opacity_metalic: u8 = (opacity & 0b1111_1110) | (metallic as u8 & 0b0000_0001);
-        let b: u32 = (rgb as u32) | ((roughness as u32) << 16) | ((opacity_metalic as u32) << 24);
+        let b: u32 = (rgb as u32) | ((roughness_emissive as u32) << 16) | ((opacity_metalic as u32) << 24);
         Self(b)
     }
 
@@ -48,7 +50,11 @@ impl Voxel {
     }
 
     pub fn roughness(&self) -> u8 {
-        (self.0 >> 16) as u8
+        ((self.0 >> 16) as u8) << 4
+    }
+
+    pub fn emissive(&self) -> u8 {
+        ((self.0 >> 20) as u8) << 4
     }
 
     pub fn opacity(&self) -> u8 {
@@ -59,3 +65,5 @@ impl Voxel {
         ((self.0 >> 24) as u8 & 0b0000_0001) != 0
     }
 }
+
+impl stardust_common::voxel::IsVoxel for Voxel {}

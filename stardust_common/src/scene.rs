@@ -1,10 +1,11 @@
+use crate::voxel::IsVoxel;
 use crate::object::Object;
 
-pub struct Scene {
-    pub objects: Vec<Object>,
+pub struct Scene<V: IsVoxel> {
+    pub objects: Vec<Object<V>>,
 }
 
-impl Scene {
+impl<V: IsVoxel> Scene<V> {
     pub fn new() -> Self {
         Self {
             objects: Vec::new(),

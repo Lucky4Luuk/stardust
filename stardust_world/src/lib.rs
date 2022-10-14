@@ -138,7 +138,6 @@ impl World {
                         // Brick is empty now, free it up
                         flag.set_in_use(false);
                     }
-                    // self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
                     flag.set_dirty(false);
                 }
             });

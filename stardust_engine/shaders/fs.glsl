@@ -84,7 +84,7 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
     vec3 mask;
 	uint brick_pool_idx;
 
-    for(int i = 0; i < 2048;) {
+    for(int i = 0; i < 1024;) {
         ivec3 brickPos = ivec3(floor(gridPos / float(BRICK_SIZE)));
         if(getBrick(brickPos, brick_pool_idx)) {
 			hitsBrick = true;
