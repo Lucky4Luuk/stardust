@@ -23,10 +23,10 @@ impl Voxel {
     }
 
     pub fn empty() -> Self {
-        Self::new([0;3],0,false,0)
+        Self::new([0;3],0, 0,false,0)
     }
 
-    pub fn new(rgb: [u8; 3], roughness: u8, metallic: bool, opacity: u8) -> Self {
+    pub fn new(rgb: [u8; 3], roughness: u8, emissive: u8, metallic: bool, opacity: u8) -> Self {
         let r = (rgb[0] >> 3) as u16;
         let g = (rgb[1] >> 2) as u16;
         let b = (rgb[2] >> 3) as u16;

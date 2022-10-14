@@ -26,7 +26,7 @@ uniform mat4 invprojview;
 uniform vec3 rayPos;
 
 bool getVoxel(ivec3 pos, out vec3 color, uint brick_pool_idx) {
-    ivec3 local_pos = ivec3(pos % 16);
+    ivec3 local_pos = ivec3(pos);
     int voxel_idx = local_pos.x + local_pos.y * 16 + local_pos.z * 16 * 16;
     if (voxel_idx < 0) return false;
     uint vi = uint(voxel_idx);
@@ -84,12 +84,12 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
     vec3 mask;
 	uint brick_pool_idx;
 
-    for(int i = 0; i < 200;) {
+    for(int i = 0; i < 2048;) {
         ivec3 brickPos = ivec3(floor(gridPos / float(BRICK_SIZE)));
         if(getBrick(brickPos, brick_pool_idx)) {
 			hitsBrick = true;
 
-            if(getVoxel(ivec3(gridPos), color, brick_pool_idx)) return dist;
+            if(getVoxel(ivec3(gridPos) - brickPos * 16, color, brick_pool_idx)) return dist;
 
             mask = vec3(lessThanEqual(toSide.xyz, min(toSide.yzx, toSide.zxy)));
             dist = dot(toSide * mask, vec3(1.0));
@@ -114,7 +114,7 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
 }
 
 float trace(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hitsBrick) {
-	vec2 hit = boxIntersection(ro, rd, vec3(BRICK_MAP_SIZE / 2));
+	vec2 hit = boxIntersection(ro, rd, vec3(BRICK_MAP_SIZE / 2) * 16.0);
     if (hit.y < 0.0) return -1.0; // No intersection
     vec3 hit_pos = ro + rd * hit.x;
     if (hit.x < 0.0) hit_pos = ro; // Inside the box already

@@ -17,8 +17,12 @@ impl Brick {
 
     pub fn full() -> Self {
         Self {
-            voxels: [Voxel::new([255;3],255,false,255); 16*16*16]
+            voxels: [Voxel::new([255;3],255,0,false,255); 16*16*16]
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        (self.voxels.iter().map(|v| v.opacity() as usize).sum::<usize>()) == 0
     }
 
     pub fn func<F: Fn(usize, usize, usize) -> Voxel>(f: F) -> Self {
