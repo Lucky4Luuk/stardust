@@ -85,6 +85,9 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
 	uint brick_pool_idx;
 
     for(int i = 0; i < 1024;) {
+        // TODO:
+        // ivec3 layer0Pos = ivec3(floor(gridPos / float(LAYER0_SIZE)));
+        // Figure out if statement order for properly skipping on higher layers
         ivec3 brickPos = ivec3(floor(gridPos / float(BRICK_SIZE)));
         if(getBrick(brickPos, brick_pool_idx)) {
 			hitsBrick = true;
