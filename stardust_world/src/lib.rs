@@ -5,22 +5,32 @@ use foxtail::prelude::*;
 
 use stardust_common::math::*;
 
+pub mod usage_flags;
+pub mod layer0;
 pub mod brick;
 pub mod voxel;
 
+use usage_flags::*;
+use layer0::*;
 use brick::*;
 use voxel::*;
 
 const BRICK_POOL_SIZE: usize = 32768;
+const LAYER0_POOL_SIZE: usize = 8192;
 const BRICK_MAP_SIZE: usize = 128;
 
 pub struct World {
     brick_pool: FixedSizeBuffer<Brick>,
-    brick_map: FixedSizeBuffer<u32>,
+    layer0_pool: FixedSizeBuffer<Layer0>,
+    layer0_map: FixedSizeBuffer<u32>,
 
     brick_pool_cpu: Box<[Brick]>,
-    brick_pool_flag_map: Box<[BrickFlags]>,
-    brick_map_cpu: Box<[u32]>,
+    brick_pool_flag_map: Box<[UsageFlags]>,
+
+    layer0_pool_cpu: Box<[Layer0]>,
+    layer0_pool_flag_map: Box<[UsageFlags]>,
+
+    layer0_map_cpu: Box<[u32]>,
 }
 
 impl World {
@@ -28,23 +38,32 @@ impl World {
         debug!("Creating new world...");
         let brick_pool = FixedSizeBuffer::new(ctx, BRICK_POOL_SIZE);
         debug!("Brick pool created!");
-        let brick_map = FixedSizeBuffer::new(ctx, BRICK_MAP_SIZE * BRICK_MAP_SIZE * BRICK_MAP_SIZE);
+        let layer0_pool = FixedSizeBuffer::new(ctx, LAYER0_POOL_SIZE);
+        debug!("Layer0 pool created!");
+        let layer0_map = FixedSizeBuffer::new(ctx, BRICK_MAP_SIZE * BRICK_MAP_SIZE * BRICK_MAP_SIZE);
         debug!("Brick map created!");
 
         let brick_pool_cpu: Box<[Brick]> = vec![Brick::empty(); BRICK_POOL_SIZE].into_boxed_slice();
-        let brick_map_cpu: Box<[u32]> = vec![0u32; BRICK_MAP_SIZE * BRICK_MAP_SIZE * BRICK_MAP_SIZE].into_boxed_slice();
+        let layer0_pool_cpu: Box<[Layer0]> = vec![Layer0::empty(); LAYER0_POOL_SIZE].into_boxed_slice();
+        let layer0_map_cpu: Box<[u32]> = vec![0u32; BRICK_MAP_SIZE * BRICK_MAP_SIZE * BRICK_MAP_SIZE].into_boxed_slice();
 
-        let mut flag = BrickFlags::empty();
+        let mut flag = UsageFlags::empty();
         flag.set_dirty(true);
         let brick_pool_flag_map = vec![flag; BRICK_POOL_SIZE].into_boxed_slice();
+        let layer0_pool_flag_map = vec![flag; LAYER0_POOL_SIZE].into_boxed_slice();
 
         let mut obj = Self {
             brick_pool: brick_pool,
-            brick_map: brick_map,
+            layer0_pool: layer0_pool,
+            layer0_map: layer0_map,
 
             brick_pool_cpu: brick_pool_cpu,
             brick_pool_flag_map: brick_pool_flag_map,
-            brick_map_cpu: brick_map_cpu,
+
+            layer0_pool_cpu: layer0_pool_cpu,
+            layer0_pool_flag_map: layer0_pool_flag_map,
+
+            layer0_map_cpu: layer0_map_cpu,
         };
 
         for ix in 0..128 {
@@ -65,9 +84,9 @@ impl World {
                     obj.set_voxel(
                         v,
                         uvec3(
-                            ix + BRICK_MAP_SIZE as u32 * 8,
-                            iy + BRICK_MAP_SIZE as u32 * 8,
-                            iz + BRICK_MAP_SIZE as u32 * 8,
+                            ix + 1024,
+                            iy + 1024,
+                            iz + 1024,
                         ),
                     );
                 }
@@ -79,15 +98,54 @@ impl World {
     }
 
     pub fn set_voxel(&mut self, voxel: Voxel, world_pos: UVec3) {
-        let brick_pos = world_pos / 16;
-        let local_pos = world_pos % 16;
+        let layer0_pos = world_pos / 16 / 16;
+
+        let layer0_pos_1d = layer0_pos.x as usize
+            + layer0_pos.y as usize * BRICK_MAP_SIZE
+            + layer0_pos.z as usize * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
+
+        let layer0_pool_idx = self.layer0_map_cpu[layer0_pos_1d] as usize;
+        if layer0_pool_idx == 0 {
+            // Layer0Node not yet allocated
+            // Step 1: Find free Layer0Node
+            let mut free_layer0_idx = 0;
+            for (i, flag) in self.layer0_pool_flag_map.iter().enumerate() {
+                if !flag.in_use() {
+                    free_layer0_idx = i + 1;
+                    break;
+                }
+            }
+            if free_layer0_idx == 0 {
+                error!("Failed to place voxel in world! No free Layer0Nodes left :(");
+                return;
+                // todo!("Resize layer0 buffer?");
+            }
+
+            // Step 2: Allocate Layer0Node
+            self.layer0_map_cpu[layer0_pos_1d] = free_layer0_idx as u32;
+            self.layer0_pool_flag_map[free_layer0_idx - 1].set_dirty(true);
+            self.layer0_pool_flag_map[free_layer0_idx - 1].set_in_use(true);
+
+            self.set_voxel_in_layer0(voxel, world_pos, free_layer0_idx - 1);
+        } else {
+            // Layer0 already allocated
+            self.set_voxel_in_layer0(voxel, world_pos, layer0_pool_idx - 1);
+        }
+    }
+
+    /// Assumes the Layer0Node at layer0_idx to already be allocated.
+    fn set_voxel_in_layer0(&mut self, voxel: Voxel, world_pos: UVec3, layer0_idx: usize) {
+        let brick_pos = (world_pos / 16) % 16;
+
         let brick_pos_1d = brick_pos.x as usize
-            + brick_pos.y as usize * BRICK_MAP_SIZE
-            + brick_pos.z as usize * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
-        let brick_pool_idx = self.brick_map_cpu[brick_pos_1d] as usize;
+            + brick_pos.y as usize * 16
+            + brick_pos.z as usize * 16 * 16;
+
+        let layer0 = &mut self.layer0_pool_cpu[layer0_idx];
+        let brick_pool_idx = layer0.brick_indices[brick_pos_1d] as usize;
         if brick_pool_idx == 0 {
             // Brick not yet allocated
-            // Step 1: Find free brick
+            // Step 1: Find free Brick
             let mut free_brick_idx = 0;
             for (i, flag) in self.brick_pool_flag_map.iter().enumerate() {
                 if !flag.in_use() {
@@ -96,37 +154,54 @@ impl World {
                 }
             }
             if free_brick_idx == 0 {
-                error!("Failed to place voxel in world! No free bricks left :(");
+                error!("Failed to place voxel in world! No free Bricks left :(");
                 return;
                 // todo!("Resize brick buffer?");
             }
 
-            // Step 2: Allocate brick
-            self.brick_map_cpu[brick_pos_1d] = free_brick_idx as u32;
+            // Step 2: Allocate Brick
+            layer0.brick_indices[brick_pos_1d] = free_brick_idx as u32;
             self.brick_pool_flag_map[free_brick_idx - 1].set_dirty(true);
             self.brick_pool_flag_map[free_brick_idx - 1].set_in_use(true);
 
-            // Step 3: Set voxel in brick
-            self.brick_pool_cpu[free_brick_idx as usize - 1].set_voxel(voxel, local_pos);
+            self.set_voxel_in_brick(voxel, world_pos, free_brick_idx - 1);
         } else {
             // Brick already allocated
-            let brick = &mut self.brick_pool_cpu[brick_pool_idx - 1];
-            brick.set_voxel(voxel, local_pos);
-            self.brick_pool_flag_map[brick_pool_idx - 1].set_dirty(true);
+            self.set_voxel_in_brick(voxel, world_pos, brick_pool_idx - 1);
         }
+    }
+
+    /// Assumes the Brick at brick_idx to already be allocated
+    fn set_voxel_in_brick(&mut self, voxel: Voxel, world_pos: UVec3, brick_idx: usize) {
+        let local_pos = world_pos % 16;
+        let brick = &mut self.brick_pool_cpu[brick_idx];
+        brick.set_voxel(voxel, local_pos);
+        self.brick_pool_flag_map[brick_idx].set_dirty(true);
     }
 
     pub fn bind(&mut self) {
         self.brick_pool.bind(0);
-        self.brick_map.bind(1);
+        self.layer0_pool.bind(1);
+        self.layer0_map.bind(2);
     }
 
     pub fn unbind(&mut self) {
         self.brick_pool.unbind();
-        self.brick_map.unbind();
+        self.layer0_pool.unbind();
+        self.layer0_map.unbind();
     }
 
     pub fn process(&mut self) {
+        self.layer0_pool_flag_map
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i, flag)| {
+                if flag.dirty() {
+                    self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
+                }
+                flag.set_dirty(false);
+            });
+
         self.brick_pool_flag_map
             .iter_mut()
             .enumerate()
@@ -141,8 +216,7 @@ impl World {
                     flag.set_dirty(false);
                 }
             });
-
         // TODO: This is always uploaded, but that's very much overkill and bad for performance lol
-        self.brick_map.write(0, &self.brick_map_cpu[..]);
+        self.layer0_map.write(0, &self.layer0_map_cpu[..]);
     }
 }

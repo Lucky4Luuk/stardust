@@ -2,6 +2,7 @@
 
 #define BRICK_MAP_SIZE 128
 #define BRICK_SIZE 16
+#define LAYER0_SIZE 16
 
 #define pow2(x) (x*x)
 
@@ -13,13 +14,21 @@ struct Brick {
     uint voxels[16*16*16];
 };
 
+struct Layer0Node {
+    uint brick_idx[16*16*16];
+};
+
 layout(std430, binding = 0) buffer brick_pool {
     Brick bricks[];
 };
 
-layout(std430, binding = 1) buffer brick_map {
+layout(std430, binding = 1) buffer layer0_pool {
+    Layer0Node layer0_nodes[];
+};
+
+layout(std430, binding = 2) buffer brick_map {
     // Offset by 1, so 0 means not allocated
-    uint brick_pool_indices[];
+    uint layer0_pool_indices[];
 };
 
 uniform mat4 invprojview;
@@ -43,12 +52,21 @@ bool getVoxel(ivec3 pos, out vec3 color, uint brick_pool_idx) {
     return true;
 }
 
-bool getBrick(ivec3 pos, out uint brick_pool_idx) {
+bool getBrick(ivec3 pos, uint layer0_pool_idx, out uint brick_pool_idx) {
+    ivec3 p = pos + ivec3(LAYER0_SIZE / 2);
+    int layer0_idx = p.x + p.y * LAYER0_SIZE + p.z * LAYER0_SIZE * LAYER0_SIZE;
+    if (layer0_idx < 0) return false;
+    brick_pool_idx = layer0_nodes[layer0_pool_idx - 1].brick_idx[layer0_idx];
+    if (brick_pool_idx == 0) return false;
+    return true;
+}
+
+bool getLayer0(ivec3 pos, out uint layer0_pool_idx) {
     ivec3 p = pos + ivec3(BRICK_MAP_SIZE / 2);
     int brick_map_idx = p.x + p.y * BRICK_MAP_SIZE + p.z * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
     if (brick_map_idx < 0) return false;
-    brick_pool_idx = brick_pool_indices[uint(brick_map_idx)];
-    if (brick_pool_idx == 0) return false;
+    layer0_pool_idx = layer0_pool_indices[brick_map_idx];
+    if (layer0_pool_idx == 0) return false;
     return true;
 }
 
@@ -70,11 +88,12 @@ vec2 boxIntersection(in vec3 ro, in vec3 rd, in vec3 rad)
     return vec2( tN, tF );
 }
 
-float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color, out bool hitsBrick) {
+float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color, out bool hitsBrick, out bool hitsLayer) {
     float tmax2 = tmax*tmax;
 
     normal = vec3(0.0, 0.0, 0.0);
 	hitsBrick = false;
+    hitsLayer = false;
 
     vec3 gridPos = floor(ro);
     vec3 sideDist = abs(length(rd)/rd);
@@ -82,18 +101,20 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
 
     float dist;
     vec3 mask;
-	uint brick_pool_idx;
 
-    for(int i = 0; i < 1024;) {
-        // TODO:
-        // ivec3 layer0Pos = ivec3(floor(gridPos / float(LAYER0_SIZE)));
-        // Figure out if statement order for properly skipping on higher layers
-        ivec3 brickPos = ivec3(floor(gridPos / float(BRICK_SIZE)));
+	uint brick_pool_idx;
+    uint layer0_pool_idx;
+
+    for(int i = 0; i < 4096;) {
+        ivec3 layer0Pos = ivec3(floor(gridPos / float(LAYER0_SIZE) / float(BRICK_SIZE)));
+        ivec3 brickPos = ivec3(floor(gridPos / float(BRICK_SIZE))) % 16;
+        ivec3 voxelPos = ivec3(floor(gridPos)) % 16;
         if (getLayer0(layer0Pos, layer0_pool_idx)) {
-            if(getBrick(brickPos, brick_pool_idx)) {
+            hitsLayer = true;
+            if(getBrick(brickPos, layer0_pool_idx, brick_pool_idx)) {
     			hitsBrick = true;
 
-                if(getVoxel(ivec3(gridPos) - brickPos * 16, color, brick_pool_idx)) return dist;
+                if(getVoxel(voxelPos, color, brick_pool_idx)) return dist;
 
                 mask = vec3(lessThanEqual(toSide.xyz, min(toSide.yzx, toSide.zxy)));
                 dist = dot(toSide * mask, vec3(1.0));
@@ -107,7 +128,7 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
     			i += max(int(mask.x + mask.y + mask.z), 1);
             }
         } else {
-            vec3 toExit = ((sign(rd) * 0.5 + 0.5 + vec3(layer0Pos)) * float(LAYER0_SIZE) - ro) / rd;
+            vec3 toExit = ((sign(rd) * 0.5 + 0.5 + vec3(layer0Pos)) * float(LAYER0_SIZE) * float(BRICK_SIZE) - ro) / rd;
             normal = -sign(rd) * vec3(lessThanEqual(toExit.xyz, min(toExit.yzx, toExit.zxy)));
             dist = dot(abs(normal), toExit);
             mask = abs(floor(ro + rd * dist - normal * 0.1) - gridPos);
@@ -124,12 +145,14 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
     return -1.0;
 }
 
-float trace(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hitsBrick) {
-	vec2 hit = boxIntersection(ro, rd, vec3(BRICK_MAP_SIZE / 2) * 16.0);
+float trace(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hitsBrick, out bool hitsLayer, out bool hitsMap) {
+    hitsMap = false;
+    vec2 hit = boxIntersection(ro, rd, vec3(BRICK_MAP_SIZE / 2) * float(BRICK_SIZE) * float(LAYER0_SIZE));
     if (hit.y < 0.0) return -1.0; // No intersection
+    hitsMap = true;
     vec3 hit_pos = ro + rd * hit.x;
     if (hit.x < 0.0) hit_pos = ro; // Inside the box already
-	return traceVoxels(hit_pos + vec3(BRICK_MAP_SIZE / 2), rd, hit.y, normal, color, hitsBrick);
+	return traceVoxels(hit_pos, rd, hit.y, normal, color, hitsBrick, hitsLayer);
 }
 
 void main() {
@@ -144,10 +167,16 @@ void main() {
     vec3 color;
 	vec3 normal;
 	bool hitsBrick;
-    float hitDist = trace(rayPos, rayDir, normal, color, hitsBrick);
+    bool hitsLayer;
+    bool hitsMap;
+    float hitDist = trace(rayPos, rayDir, normal, color, hitsBrick, hitsLayer, hitsMap);
     if (hitDist > 0.0) {
         FragColor = vec4(color, 1.0);
     } else if (hitsBrick) {
-		FragColor = vec4(0.2, 0.2, 0.2, 1.0);
-	}
+		FragColor = vec4(0.2, 0.0, 0.0, 1.0);
+	} else if (hitsLayer) {
+        FragColor = vec4(0.0, 0.2, 0.0, 1.0);
+    } else if (hitsMap) {
+        FragColor = vec4(0.0, 0.0, 0.2, 1.0);
+    }
 }
