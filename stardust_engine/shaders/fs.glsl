@@ -89,21 +89,29 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
         // ivec3 layer0Pos = ivec3(floor(gridPos / float(LAYER0_SIZE)));
         // Figure out if statement order for properly skipping on higher layers
         ivec3 brickPos = ivec3(floor(gridPos / float(BRICK_SIZE)));
-        if(getBrick(brickPos, brick_pool_idx)) {
-			hitsBrick = true;
+        if (getLayer0(layer0Pos, layer0_pool_idx)) {
+            if(getBrick(brickPos, brick_pool_idx)) {
+    			hitsBrick = true;
 
-            if(getVoxel(ivec3(gridPos) - brickPos * 16, color, brick_pool_idx)) return dist;
+                if(getVoxel(ivec3(gridPos) - brickPos * 16, color, brick_pool_idx)) return dist;
 
-            mask = vec3(lessThanEqual(toSide.xyz, min(toSide.yzx, toSide.zxy)));
-            dist = dot(toSide * mask, vec3(1.0));
-            normal = mask * -sign(rd);
-			++i;
+                mask = vec3(lessThanEqual(toSide.xyz, min(toSide.yzx, toSide.zxy)));
+                dist = dot(toSide * mask, vec3(1.0));
+                normal = mask * -sign(rd);
+    			++i;
+            } else {
+                vec3 toExit = ((sign(rd) * 0.5 + 0.5 + vec3(brickPos)) * float(BRICK_SIZE) - ro) / rd;
+                normal = -sign(rd) * vec3(lessThanEqual(toExit.xyz, min(toExit.yzx, toExit.zxy)));
+                dist = dot(abs(normal), toExit);
+                mask = abs(floor(ro + rd * dist - normal * 0.1) - gridPos);
+    			i += max(int(mask.x + mask.y + mask.z), 1);
+            }
         } else {
-            vec3 toExit = ((sign(rd) * 0.5 + 0.5 + vec3(brickPos)) * float(BRICK_SIZE) - ro) / rd;
+            vec3 toExit = ((sign(rd) * 0.5 + 0.5 + vec3(layer0Pos)) * float(LAYER0_SIZE) - ro) / rd;
             normal = -sign(rd) * vec3(lessThanEqual(toExit.xyz, min(toExit.yzx, toExit.zxy)));
             dist = dot(abs(normal), toExit);
             mask = abs(floor(ro + rd * dist - normal * 0.1) - gridPos);
-			i += max(int(mask.x + mask.y + mask.z), 1);
+            i += max(int(mask.x + mask.y + mask.z), 1);
         }
 
         toSide += sideDist * mask;
