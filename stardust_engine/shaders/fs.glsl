@@ -111,10 +111,10 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
         ivec3 voxelPos = ivec3(floor(gridPos)) % 16;
         if (getLayer0(layer0Pos, layer0_pool_idx)) {
             hitsLayer = true;
-            if(getBrick(brickPos, layer0_pool_idx, brick_pool_idx)) {
+            if (getBrick(brickPos, layer0_pool_idx, brick_pool_idx)) {
     			hitsBrick = true;
 
-                if(getVoxel(voxelPos, color, brick_pool_idx)) return dist;
+                if (getVoxel(voxelPos, color, brick_pool_idx)) return dist;
 
                 mask = vec3(lessThanEqual(toSide.xyz, min(toSide.yzx, toSide.zxy)));
                 dist = dot(toSide * mask, vec3(1.0));
