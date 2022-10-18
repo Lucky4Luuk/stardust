@@ -127,6 +127,7 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
                 mask = abs(floor(ro + rd * dist - normal * 0.1) - gridPos);
     			i += max(int(mask.x + mask.y + mask.z), 1);
             }
+            ++i;
         } else {
             vec3 toExit = ((sign(rd) * 0.5 + 0.5 + vec3(layer0Pos)) * float(LAYER0_SIZE) * float(BRICK_SIZE) - ro) / rd;
             normal = -sign(rd) * vec3(lessThanEqual(toExit.xyz, min(toExit.yzx, toExit.zxy)));

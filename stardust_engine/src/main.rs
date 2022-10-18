@@ -22,11 +22,40 @@ impl Engine {
     fn new(ctx: &mut Context) -> Self {
         ctx.set_window_title("Stardust engine");
         trace!("Demo created!");
-        let world = stardust_world::World::new(ctx);
+        let mut world = stardust_world::World::new(ctx);
         let renderer = renderer::Renderer::new(ctx);
         let mut camera = Camera::default();
         camera.pos = vec3(1024.0, 1024.0, 1624.0);
         camera.rotation = Quat::from_rotation_y(0.0);
+
+        // for ix in 0..128 {
+        //     for iy in 0..128 {
+        //         for iz in 0..128 {
+        //             let cx = (ix % 16) as u8;
+        //             let cy = (iy % 16) as u8;
+        //             let c = [cx * 16, cy * 16, 255];
+        //             let ox = ix as i16 - 64;
+        //             let oy = iy as i16 - 64;
+        //             let oz = iz as i16 - 64;
+        //             let o = if ox * ox + oy * oy + oz * oz > 57 * 57 {
+        //                 0
+        //             } else {
+        //                 255
+        //             };
+        //             let v = stardust_world::voxel::Voxel::new(c, 255, 0, false, o);
+        //             world.set_voxel(
+        //                 v,
+        //                 uvec3(
+        //                     ix + 1024,
+        //                     iy + 1024,
+        //                     iz + 1024,
+        //                 ),
+        //             );
+        //         }
+        //     }
+        // }
+        //
+        // world.process();
 
         Self {
             world: world,
@@ -74,7 +103,7 @@ impl App for Engine {
     }
 
     fn update(&mut self, _ctx: &mut Context) {
-        use rand::RngCore;
+        // use rand::RngCore;
 
         let now = Instant::now();
         let elapsed = now - self.last_frame;
@@ -84,11 +113,11 @@ impl App for Engine {
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
         // Add a single random voxel to the world
-        let mut rng = rand::thread_rng();
-        let x = (rng.next_u32() % 16384) / 64 + 1024;
-        let y = (rng.next_u32() % 16384) / 64 + 1024;
-        let z = (rng.next_u32() % 16384) / 64 + 1024;
-        self.world.set_voxel(stardust_world::voxel::Voxel::new([255; 3], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
+        // let mut rng = rand::thread_rng();
+        // let x = (rng.next_u32() % 16384) / 64 + 1024;
+        // let y = (rng.next_u32() % 16384) / 64 + 1024;
+        // let z = (rng.next_u32() % 16384) / 64 + 1024;
+        // self.world.set_voxel(stardust_world::voxel::Voxel::new([255; 3], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
     }
 
     fn render(&mut self, ctx: &mut Context) {
