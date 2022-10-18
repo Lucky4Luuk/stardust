@@ -102,10 +102,10 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
     float dist;
     vec3 mask;
 
-	uint brick_pool_idx;
-    uint layer0_pool_idx;
+	uint brick_pool_idx = 0;
+    uint layer0_pool_idx = 0;
 
-    for(int i = 0; i < 4096;) {
+    for(int i = 0; i < 1024;) {
         ivec3 layer0Pos = ivec3(floor(gridPos / float(LAYER0_SIZE) / float(BRICK_SIZE)));
         ivec3 brickPos = ivec3(floor(gridPos / float(BRICK_SIZE))) % 16;
         ivec3 voxelPos = ivec3(floor(gridPos)) % 16;

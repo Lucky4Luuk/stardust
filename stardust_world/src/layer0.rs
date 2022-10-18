@@ -1,4 +1,4 @@
-// #[repr(C)]
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Layer0 {
     pub brick_indices: [u32; 16*16*16],

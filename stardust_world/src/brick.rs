@@ -2,7 +2,7 @@ use stardust_common::math::*;
 
 use super::voxel::Voxel;
 
-// #[repr(C)]
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Brick {
     voxels: [Voxel; 16*16*16],
