@@ -1,6 +1,6 @@
 #version 450
 
-#define BRICK_MAP_SIZE 128
+#define BRICK_MAP_SIZE 64
 #define BRICK_SIZE 16
 #define LAYER0_SIZE 16
 
@@ -53,7 +53,7 @@ bool getVoxel(ivec3 pos, out vec3 color, uint brick_pool_idx) {
 }
 
 bool getBrick(ivec3 pos, uint layer0_pool_idx, out uint brick_pool_idx) {
-    ivec3 p = pos + ivec3(LAYER0_SIZE / 2);
+    ivec3 p = pos;
     int layer0_idx = p.x + p.y * LAYER0_SIZE + p.z * LAYER0_SIZE * LAYER0_SIZE;
     if (layer0_idx < 0) return false;
     brick_pool_idx = layer0_nodes[layer0_pool_idx - 1].brick_idx[layer0_idx];
@@ -62,7 +62,7 @@ bool getBrick(ivec3 pos, uint layer0_pool_idx, out uint brick_pool_idx) {
 }
 
 bool getLayer0(ivec3 pos, out uint layer0_pool_idx) {
-    ivec3 p = pos + ivec3(BRICK_MAP_SIZE / 2);
+    ivec3 p = pos;
     int brick_map_idx = p.x + p.y * BRICK_MAP_SIZE + p.z * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
     if (brick_map_idx < 0) return false;
     layer0_pool_idx = layer0_pool_indices[brick_map_idx];
@@ -147,7 +147,7 @@ float traceVoxels(vec3 ro, vec3 rd, float tmax, out vec3 normal, out vec3 color,
 
 float trace(vec3 ro, vec3 rd, out vec3 normal, out vec3 color, out bool hitsBrick, out bool hitsLayer, out bool hitsMap) {
     hitsMap = false;
-    vec2 hit = boxIntersection(ro, rd, vec3(BRICK_MAP_SIZE / 2) * float(BRICK_SIZE) * float(LAYER0_SIZE));
+    vec2 hit = boxIntersection(ro - vec3(BRICK_MAP_SIZE / 2) * float(BRICK_SIZE) * float(LAYER0_SIZE), rd, vec3(BRICK_MAP_SIZE / 2) * float(BRICK_SIZE) * float(LAYER0_SIZE));
     if (hit.y < 0.0) return -1.0; // No intersection
     hitsMap = true;
     vec3 hit_pos = ro + rd * hit.x;

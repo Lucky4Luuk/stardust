@@ -17,7 +17,7 @@ use voxel::*;
 
 const BRICK_POOL_SIZE: usize = 32768;
 const LAYER0_POOL_SIZE: usize = 8192;
-const BRICK_MAP_SIZE: usize = 128;
+const BRICK_MAP_SIZE: usize = 64;
 
 pub struct World {
     brick_pool: FixedSizeBuffer<Brick>,
