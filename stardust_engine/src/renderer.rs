@@ -25,7 +25,7 @@ impl Renderer {
     pub fn render(&self, ctx: &Context, world: &mut World, camera: &Camera) {
         let size = ctx.size();
         let aspect_ratio = size.width as f32 / size.height as f32;
-        let _ = self.shader.while_bound(|uni| {
+        self.shader.while_bound(|uni| {
             world.bind();
             let m = camera.matrix_invprojview(aspect_ratio).to_cols_array();
             uni.set_mat4("invprojview", m);
@@ -33,6 +33,6 @@ impl Renderer {
             self.mesh.draw()?;
             world.unbind();
             Ok(())
-        });
+        }).expect("Failed to render!");
     }
 }
