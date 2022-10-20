@@ -74,7 +74,7 @@ impl App for Engine {
     }
 
     fn update(&mut self, _ctx: &mut Context) {
-        // use rand::RngCore;
+        use rand::RngCore;
 
         let now = Instant::now();
         let elapsed = now - self.last_frame;
@@ -84,11 +84,11 @@ impl App for Engine {
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
         // Add a single random voxel to the world
-        // let mut rng = rand::thread_rng();
-        // let x = (rng.next_u32() % 16384) / 64 + 1024;
-        // let y = (rng.next_u32() % 16384) / 64 + 1024;
-        // let z = (rng.next_u32() % 16384) / 64 + 1024;
-        // self.world.set_voxel(stardust_world::voxel::Voxel::new([255; 3], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
+        let mut rng = rand::thread_rng();
+        let x = (rng.next_u32() % 16384) / 64 + 1024;
+        let y = (rng.next_u32() % 16384) / 64 + 1024;
+        let z = (rng.next_u32() % 16384) / 64 + 1024;
+        self.world.set_voxel(stardust_world::voxel::Voxel::new([255; 3], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
     }
 
     fn render(&mut self, ctx: &mut Context) {
