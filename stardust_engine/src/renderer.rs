@@ -23,9 +23,11 @@ impl Renderer {
     }
 
     pub fn render(&self, ctx: &Context, world: &mut World, camera: &Camera) {
+        puffin::profile_function!();
         let size = ctx.size();
         let aspect_ratio = size.width as f32 / size.height as f32;
         self.shader.while_bound(|uni| {
+            puffin::profile_scope!("raytracing");
             world.bind();
             let m = camera.matrix_invprojview(aspect_ratio).to_cols_array();
             uni.set_mat4("invprojview", m);

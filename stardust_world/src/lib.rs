@@ -98,6 +98,7 @@ impl World {
     }
 
     pub fn set_voxel(&mut self, voxel: Voxel, world_pos: UVec3) {
+        puffin::profile_function!();
         let layer0_pos = world_pos / 16 / 16;
 
         let layer0_pos_1d = layer0_pos.x as usize
@@ -135,6 +136,7 @@ impl World {
 
     /// Assumes the Layer0Node at layer0_idx to already be allocated.
     fn set_voxel_in_layer0(&mut self, voxel: Voxel, world_pos: UVec3, layer0_idx: usize) {
+        puffin::profile_function!();
         let brick_pos = (world_pos / 16) % 16;
 
         let brick_pos_1d = brick_pos.x as usize
@@ -173,6 +175,7 @@ impl World {
 
     /// Assumes the Brick at brick_idx to already be allocated
     fn set_voxel_in_brick(&mut self, voxel: Voxel, world_pos: UVec3, brick_idx: usize) {
+        puffin::profile_function!();
         let local_pos = world_pos % 16;
         let brick = &mut self.brick_pool_cpu[brick_idx];
         brick.set_voxel(voxel, local_pos);
@@ -192,6 +195,7 @@ impl World {
     }
 
     pub fn process(&mut self) {
+        puffin::profile_function!();
         self.layer0_pool_flag_map
             .iter_mut()
             .enumerate()

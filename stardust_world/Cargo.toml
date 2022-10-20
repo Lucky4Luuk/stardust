@@ -5,5 +5,6 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
+puffin = "0.13.3"
 foxtail = { path = "../../foxtail/foxtail" }
 stardust_common = { path = "../stardust_common" }
