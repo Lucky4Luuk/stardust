@@ -97,7 +97,7 @@ impl App for Engine {
 
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
-        // Add a single random voxel to the world
+        // Add random voxels to the world
         for _ in 0..16 {
             let mut rng = rand::thread_rng();
             let x = (rng.next_u32() % 16384) / 64 + 1024;
