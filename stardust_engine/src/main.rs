@@ -103,7 +103,10 @@ impl App for Engine {
             let x = (rng.next_u32() % 16384) / 64 + 1024;
             let y = (rng.next_u32() % 16384) / 64 + 1024;
             let z = (rng.next_u32() % 16384) / 64 + 1024;
-            self.world.set_voxel(stardust_world::voxel::Voxel::new([255; 3], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
+            let r = (rng.next_u32() % 255) as u8;
+            let g = (rng.next_u32() % 255) as u8;
+            let b = (rng.next_u32() % 255) as u8;
+            self.world.set_voxel(stardust_world::voxel::Voxel::new([r,g,b], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
         }
     }
 
@@ -123,6 +126,8 @@ impl App for Engine {
                     ui.label(&format!("ms: {}", self.delta_s * 1000.0));
                     ui.label(&format!("render resolution: {:?}", size));
                     ui.label(&format!("cam_pos: {:?}", self.camera.pos));
+                    ui.label(&format!("bricks used: {}/{}", self.world.bricks_used, stardust_world::BRICK_POOL_SIZE));
+                    ui.label(&format!("layer0 used: {}/{}", self.world.layer0_used, stardust_world::LAYER0_POOL_SIZE));
                 });
             if self.show_console {
                 if let Some(cmd) = self.console.draw(egui_ctx) {

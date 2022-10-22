@@ -15,8 +15,8 @@ use layer0::*;
 use brick::*;
 use voxel::*;
 
-const BRICK_POOL_SIZE: usize = 32768;
-const LAYER0_POOL_SIZE: usize = 8192;
+pub const BRICK_POOL_SIZE: usize = 32768;
+pub const LAYER0_POOL_SIZE: usize = 8192;
 const BRICK_MAP_SIZE: usize = 64;
 
 pub struct World {
@@ -31,6 +31,9 @@ pub struct World {
     layer0_pool_flag_map: Box<[UsageFlags]>,
 
     layer0_map_cpu: Box<[u32]>,
+
+    pub bricks_used: usize,
+    pub layer0_used: usize,
 }
 
 impl World {
@@ -64,6 +67,9 @@ impl World {
             layer0_pool_flag_map: layer0_pool_flag_map,
 
             layer0_map_cpu: layer0_map_cpu,
+
+            bricks_used: 0,
+            layer0_used: 0,
         };
 
         for ix in 0..128 {
@@ -126,6 +132,7 @@ impl World {
             self.layer0_map_cpu[layer0_pos_1d] = free_layer0_idx as u32;
             self.layer0_pool_flag_map[free_layer0_idx - 1].set_dirty(true);
             self.layer0_pool_flag_map[free_layer0_idx - 1].set_in_use(true);
+            self.layer0_used += 1;
 
             self.set_voxel_in_layer0(voxel, world_pos, free_layer0_idx - 1);
         } else {
@@ -165,6 +172,7 @@ impl World {
             layer0.brick_indices[brick_pos_1d] = free_brick_idx as u32;
             self.brick_pool_flag_map[free_brick_idx - 1].set_dirty(true);
             self.brick_pool_flag_map[free_brick_idx - 1].set_in_use(true);
+            self.bricks_used += 1;
 
             self.set_voxel_in_brick(voxel, world_pos, free_brick_idx - 1);
         } else {
@@ -213,8 +221,9 @@ impl World {
                 if flag.dirty() {
                     if !self.brick_pool_cpu[i].is_empty() {
                         self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
-                    } else {
+                    } else if flag.in_use() {
                         // Brick is empty now, free it up
+                        self.bricks_used -= 1;
                         flag.set_in_use(false);
                     }
                     flag.set_dirty(false);

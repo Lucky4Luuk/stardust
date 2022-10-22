@@ -1,4 +1,5 @@
 use stardust_common::math::*;
+use stardust_common::voxel::IsVoxel;
 
 #[repr(C)]
 pub struct VoxelWithPos((UVec4, Voxel));
@@ -23,10 +24,6 @@ impl Voxel {
         self.0
     }
 
-    pub fn empty() -> Self {
-        Self::new([0;3],0, 0,false,0)
-    }
-
     pub fn new(rgb: [u8; 3], roughness: u8, emissive: u8, metallic: bool, opacity: u8) -> Self {
         let r = (rgb[0] >> 3) as u16;
         let g = (rgb[1] >> 2) as u16;
@@ -36,6 +33,10 @@ impl Voxel {
         let opacity_metalic: u8 = (opacity & 0b1111_1110) | (metallic as u8 & 0b0000_0001);
         let b: u32 = (rgb as u32) | ((roughness_emissive as u32) << 16) | ((opacity_metalic as u32) << 24);
         Self(b)
+    }
+
+    pub fn empty() -> Self {
+        Self::new([0;3],0, 0,false,0)
     }
 
     pub fn rgb(&self) -> [u8; 3] {
@@ -66,4 +67,8 @@ impl Voxel {
     }
 }
 
-impl stardust_common::voxel::IsVoxel for Voxel {}
+impl IsVoxel for Voxel {
+    fn generic_new(rgb: [u8; 3], roughness: u8, emissive: u8, metallic: bool, opacity: u8) -> Self {
+        Self::new(rgb, roughness, emissive, metallic, opacity)
+    }
+}
