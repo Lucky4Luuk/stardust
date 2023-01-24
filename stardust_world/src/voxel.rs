@@ -20,10 +20,6 @@ impl VoxelWithPos {
 pub struct Voxel(u32);
 
 impl Voxel {
-    pub(crate) fn as_u32(&self) -> u32 {
-        self.0
-    }
-
     pub fn new(rgb: [u8; 3], roughness: u8, emissive: u8, metallic: bool, opacity: u8) -> Self {
         let r = (rgb[0] >> 3) as u16;
         let g = (rgb[1] >> 2) as u16;
