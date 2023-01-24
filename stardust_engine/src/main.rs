@@ -1,31 +1,43 @@
 #[macro_use]
 extern crate log;
-use foxtail::prelude::*;
+
 use std::time::Instant;
+use std::collections::VecDeque;
+use std::ops::{Deref, DerefMut};
+
+use foxtail::prelude::*;
 
 use stardust_common::camera::Camera;
 use stardust_common::math::*;
 
 pub mod renderer;
-pub mod console;
+pub mod widgets;
 
-pub struct Engine {
+use widgets::*;
+
+pub struct EngineInternals {
     world: stardust_world::World,
     renderer: renderer::Renderer,
-    console: console::Console,
-    show_console: bool,
-    show_flamegraph: bool,
 
     camera: Camera,
     delta_s: f32,
     frame_counter: usize,
     cam_rot_y: f32,
     last_frame: Instant,
+
+    pub console_pending_writes: VecDeque<String>,
+}
+
+pub struct Engine {
+    show_flamegraph: bool,
+    widgets: WidgetContainer,
+    internals: EngineInternals,
 }
 
 impl Engine {
     fn new(ctx: &mut Context) -> Self {
-        let console = console::Console::new();
+        let widgets = WidgetContainer::new();
+
         ctx.set_window_title("Stardust engine");
         trace!("Demo created!");
         let world = stardust_world::World::new(ctx);
@@ -34,19 +46,40 @@ impl Engine {
         camera.pos = vec3(1024.0, 1024.0, 1624.0);
         camera.rotation = Quat::from_rotation_y(0.0);
 
-        Self {
-            world: world,
-            renderer: renderer,
-            console: console,
-            show_console: false,
+        let mut obj = Self {
             show_flamegraph: false,
+            widgets: widgets,
+            internals: EngineInternals {
+                world: world,
+                renderer: renderer,
 
-            camera: camera,
-            delta_s: 0.0,
-            frame_counter: 0,
-            cam_rot_y: 0.0,
-            last_frame: Instant::now(),
-        }
+                camera: camera,
+                delta_s: 0.0,
+                frame_counter: 0,
+                cam_rot_y: 0.0,
+                last_frame: Instant::now(),
+
+                console_pending_writes: VecDeque::new(),
+            },
+        };
+
+        obj.widgets.add_docked(Box::new(Console::new()), DockLoc::Left);
+        obj.widgets.add_docked(Box::new(VfsBrowser::new()), DockLoc::Left);
+
+        obj
+    }
+}
+
+impl Deref for Engine {
+    type Target = EngineInternals;
+    fn deref(&self) -> &Self::Target {
+        &self.internals
+    }
+}
+
+impl DerefMut for Engine {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.internals
     }
 }
 
@@ -55,9 +88,9 @@ impl App for Engine {
         let movespeed = if input.held_shift() { 50.0 } else { 25.0 };
         let rotspeed = 3.0;
 
-        if input.key_pressed(KeyCode::F) && input.held_control() {
-            self.show_console = !self.show_console;
-        }
+        // if input.key_pressed(KeyCode::F) && input.held_control() {
+        //     self.show_console = !self.show_console;
+        // }
 
         if input.key_held(KeyCode::Right) {
             self.cam_rot_y += rotspeed * self.delta_s;
@@ -68,16 +101,16 @@ impl App for Engine {
 
         let q = self.camera.rotation.conjugate();
         if input.key_held(KeyCode::W) {
-            self.camera.pos += q * vec3(0.0, 0.0, -movespeed) * self.delta_s;
+            self.internals.camera.pos += q * vec3(0.0, 0.0, -movespeed) * self.internals.delta_s;
         }
         if input.key_held(KeyCode::S) {
-            self.camera.pos += q * vec3(0.0, 0.0, movespeed) * self.delta_s;
+            self.internals.camera.pos += q * vec3(0.0, 0.0, movespeed) * self.internals.delta_s;
         }
         if input.key_held(KeyCode::A) {
-            self.camera.pos += q * vec3(-movespeed, 0.0, 0.0) * self.delta_s;
+            self.internals.camera.pos += q * vec3(-movespeed, 0.0, 0.0) * self.internals.delta_s;
         }
         if input.key_held(KeyCode::D) {
-            self.camera.pos += q * vec3(movespeed, 0.0, 0.0) * self.delta_s;
+            self.internals.camera.pos += q * vec3(movespeed, 0.0, 0.0) * self.internals.delta_s;
         }
         if input.key_held(KeyCode::Space) {
             self.camera.pos.y += movespeed * self.delta_s;
@@ -115,9 +148,13 @@ impl App for Engine {
         self.frame_counter += 1;
 
         self.world.process();
-        self.renderer.render(ctx, &mut self.world, &self.camera);
+        self.internals.renderer.render(ctx, &mut self.internals.world, &self.internals.camera);
         let size = ctx.size();
         ctx.draw_ui(|egui_ctx| {
+            // Draw docked widgets
+            self.widgets.draw_docked(egui_ctx, &mut self.internals);
+
+            // Draw floating windows
             egui::Window::new("debug window")
                 .resizable(true)
                 .show(egui_ctx, |ui| {
@@ -129,11 +166,6 @@ impl App for Engine {
                     ui.label(&format!("bricks used: {}/{}", self.world.bricks_used, stardust_world::BRICK_POOL_SIZE));
                     ui.label(&format!("layer0 used: {}/{}", self.world.layer0_used, stardust_world::LAYER0_POOL_SIZE));
                 });
-            if self.show_console {
-                if let Some(cmd) = self.console.draw(egui_ctx) {
-                    self.run_command(cmd);
-                }
-            }
             if self.show_flamegraph {
                 puffin_egui::profiler_window(&egui_ctx);
             }
@@ -142,28 +174,8 @@ impl App for Engine {
 }
 
 impl Engine {
-    fn run_command(&mut self, cmd: console::Command) {
-        let buf = &mut self.console.buf;
-        match cmd.name.as_str() {
-            "debug_show_flamegraph" => {
-                if cmd.args.len() != 1 {
-                    buf.push("Incorrect number of arguments!");
-                } else {
-                    if let Ok(on) = cmd.args[0].parse::<usize>() {
-                        if on != 0 {
-                            self.show_flamegraph = true;
-                            puffin::set_scopes_on(true);
-                        } else {
-                            self.show_flamegraph = false;
-                            puffin::set_scopes_on(false);
-                        }
-                    } else {
-                        buf.push("Failed to parse argument as number!");
-                    }
-                }
-            },
-            _ => buf.push("Unknown command!"),
-        }
+    fn console_write<S: Into<String>>(&mut self, s: S) {
+        self.console_pending_writes.push_back(s.into());
     }
 }
 
