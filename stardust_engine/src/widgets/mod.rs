@@ -53,7 +53,7 @@ impl WidgetContainer {
     pub fn draw_docked(&mut self, ctx: &egui::Context, engine: &mut crate::EngineInternals) {
         if self.left_docked_widgets.len() > 0 {
             egui::SidePanel::left("docked_left").show(ctx, |ui| {
-                egui::ScrollArea::vertical().always_show_scroll(true).show(ui, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
                     egui::Grid::new("docked_left_grid").num_columns(1).show(ui, |ui| {
                         for docked_widget in &mut self.left_docked_widgets {
                             ui.vertical(|ui| {
@@ -71,7 +71,7 @@ impl WidgetContainer {
 
         if self.right_docked_widgets.len() > 0 {
             egui::SidePanel::right("docked_right").show(ctx, |ui| {
-                egui::ScrollArea::vertical().always_show_scroll(true).show(ui, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
                     egui::Grid::new("docked_right_grid").num_columns(1).show(ui, |ui| {
                         for docked_widget in &mut self.right_docked_widgets {
                             ui.vertical(|ui| {
@@ -89,18 +89,16 @@ impl WidgetContainer {
 
         if self.bottom_docked_widgets.len() > 0 {
             egui::TopBottomPanel::bottom("docked_bottom").show(ctx, |ui| {
-                egui::ScrollArea::vertical().always_show_scroll(true).show(ui, |ui| {
-                    egui::Grid::new("docked_bottom_grid").num_columns(1).show(ui, |ui| {
-                        for docked_widget in &mut self.bottom_docked_widgets {
-                            ui.horizontal(|ui| {
-                                ui.heading(docked_widget.widget.title());
-                                ui.separator();
-                                docked_widget.widget.draw(ui, engine);
-                                ui.separator();
-                            });
-                            ui.end_row();
-                        }
-                    });
+                egui::Grid::new("docked_bottom_grid").num_columns(self.bottom_docked_widgets.len()).show(ui, |ui| {
+                    for docked_widget in &mut self.bottom_docked_widgets {
+                        ui.horizontal(|ui| {
+                            ui.heading(docked_widget.widget.title());
+                            ui.separator();
+                            docked_widget.widget.draw(ui, engine);
+                            ui.separator();
+                        });
+                        ui.end_row();
+                    }
                 });
             });
         }

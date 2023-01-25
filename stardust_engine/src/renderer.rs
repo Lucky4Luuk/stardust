@@ -22,10 +22,9 @@ impl Renderer {
         }
     }
 
-    pub fn render(&self, ctx: &Context, world: &mut World, camera: &Camera) {
+    pub fn render(&self, _ctx: &Context, world: &mut World, camera: &Camera, render_size: (u32, u32)) {
         puffin::profile_function!();
-        let size = ctx.size();
-        let aspect_ratio = size.width as f32 / size.height as f32;
+        let aspect_ratio = (render_size.0 as f32) / (render_size.1 as f32);
         self.shader.while_bound(|uni| {
             puffin::profile_scope!("raytracing");
             world.bind();

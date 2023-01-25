@@ -18,6 +18,9 @@ use widgets::*;
 pub struct EngineInternals {
     world: stardust_world::World,
     renderer: renderer::Renderer,
+    framebuffer: Framebuffer,
+    render_size: (u32, u32),
+    render_offset: (u32, u32),
 
     camera: Camera,
     delta_s: f32,
@@ -46,12 +49,17 @@ impl Engine {
         camera.pos = vec3(1024.0, 1024.0, 1624.0);
         camera.rotation = Quat::from_rotation_y(0.0);
 
+        let render_size = ctx.size();
+
         let mut obj = Self {
             show_flamegraph: false,
             widgets: widgets,
             internals: EngineInternals {
                 world: world,
                 renderer: renderer,
+                framebuffer: Framebuffer::new(ctx),
+                render_size: (render_size.width, render_size.height),
+                render_offset: (0, 0),
 
                 camera: camera,
                 delta_s: 0.0,
@@ -64,7 +72,7 @@ impl Engine {
         };
 
         obj.widgets.add_docked(Box::new(Console::new()), DockLoc::Left);
-        obj.widgets.add_docked(Box::new(VfsBrowser::new()), DockLoc::Left);
+        obj.widgets.add_docked(Box::new(VfsBrowser::new()), DockLoc::Bottom);
 
         obj
     }
@@ -148,8 +156,26 @@ impl App for Engine {
         self.frame_counter += 1;
 
         self.world.process();
-        self.internals.renderer.render(ctx, &mut self.internals.world, &self.internals.camera);
-        let size = ctx.size();
+
+        let size = self.render_size;
+        let wsize = ctx.size();
+
+        // Use glViewport to scale the framebuffer output correctly
+        // TODO: Implement nice feature for this in foxtail
+        unsafe { ctx.gl.viewport(0, 0, self.render_size.0 as i32, self.render_size.1 as i32); }
+        self.internals.framebuffer.while_bound(|| {
+            self.internals.renderer.render(ctx, &mut self.internals.world, &self.internals.camera, size);
+            Ok(())
+        }).expect("Failed to draw to framebuffer!");
+
+        // Use glViewport to offset and scale the framebuffer output
+        unsafe { ctx.gl.viewport(self.render_offset.0 as i32, self.render_offset.1 as i32, self.render_size.0 as i32, self.render_size.1 as i32); }
+
+        // Draw the framebuffer
+        self.internals.framebuffer.draw().expect("Failed to draw framebuffer!");
+        // Undo the effects of glViewport
+        unsafe { ctx.gl.viewport(0, 0, wsize.width as i32, wsize.height as i32); }
+
         ctx.draw_ui(|egui_ctx| {
             // Draw docked widgets
             self.widgets.draw_docked(egui_ctx, &mut self.internals);
@@ -168,6 +194,19 @@ impl App for Engine {
                 });
             if self.show_flamegraph {
                 puffin_egui::profiler_window(&egui_ctx);
+            }
+
+            let available_rect = egui_ctx.available_rect();
+            let available_size = (
+                (available_rect.max.x - available_rect.min.x) as u32,
+                (available_rect.max.y - available_rect.min.y) as u32,
+            );
+
+            if available_size != self.render_size {
+                self.render_size = available_size;
+                self.framebuffer.resize((available_size.0.max(1) as i32, available_size.1.max(1) as i32));
+                // self.framebuffer.resize((wsize.width as i32, wsize.height as i32));
+                self.render_offset = (available_rect.min.x as u32, wsize.height - available_rect.max.y as u32);
             }
         });
     }
