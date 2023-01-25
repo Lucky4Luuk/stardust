@@ -163,6 +163,12 @@ impl App for Engine {
         // Use glViewport to scale the framebuffer output correctly
         // TODO: Implement nice feature for this in foxtail
         unsafe { ctx.gl.viewport(0, 0, self.render_size.0 as i32, self.render_size.1 as i32); }
+        // TODO: Render function should instead take a framebuffer to render to
+        //       Right now, the render function cannot use framebuffers itself, as
+        //       it will lose binding for the original framebuffer!
+        //       A nicer solution could also be to keep track of the bound framebuffer
+        //       in foxtail, and simply bind it only when calling the draw function on
+        //       a drawable. Definitely worth looking into
         self.internals.framebuffer.while_bound(|| {
             self.internals.renderer.render(ctx, &mut self.internals.world, &self.internals.camera, size);
             Ok(())
