@@ -4,11 +4,14 @@ extern crate log;
 use std::time::Instant;
 use std::collections::VecDeque;
 use std::ops::{Deref, DerefMut};
+use std::path::{Path, PathBuf};
 
 use foxtail::prelude::*;
 
 use stardust_common::camera::Camera;
 use stardust_common::math::*;
+
+use vfs::*;
 
 pub mod renderer;
 pub mod widgets;
@@ -27,6 +30,8 @@ pub struct EngineInternals {
     frame_counter: usize,
     cam_rot_y: f32,
     last_frame: Instant,
+
+    vfs: AltrootFS,
 
     pub console_pending_writes: VecDeque<String>,
 }
@@ -67,12 +72,14 @@ impl Engine {
                 cam_rot_y: 0.0,
                 last_frame: Instant::now(),
 
+                vfs: AltrootFS::new(VfsPath::new(PhysicalFS::new("."))),
+
                 console_pending_writes: VecDeque::new(),
             },
         };
 
         obj.widgets.add_docked(Box::new(Console::new()), DockLoc::Left);
-        obj.widgets.add_docked(Box::new(VfsBrowser::new()), DockLoc::Bottom);
+        obj.widgets.add_docked(Box::new(FsBrowser::new()), DockLoc::Right);
 
         obj
     }

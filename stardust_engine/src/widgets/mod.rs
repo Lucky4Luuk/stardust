@@ -1,5 +1,5 @@
-mod vfs_browser;
-pub use vfs_browser::*;
+mod fs_browser;
+pub use fs_browser::*;
 
 mod console;
 pub use console::*;
@@ -91,7 +91,7 @@ impl WidgetContainer {
             egui::TopBottomPanel::bottom("docked_bottom").show(ctx, |ui| {
                 egui::Grid::new("docked_bottom_grid").num_columns(self.bottom_docked_widgets.len()).show(ui, |ui| {
                     for docked_widget in &mut self.bottom_docked_widgets {
-                        ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
                             ui.heading(docked_widget.widget.title());
                             ui.separator();
                             docked_widget.widget.draw(ui, engine);

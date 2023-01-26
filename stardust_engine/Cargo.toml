@@ -13,5 +13,7 @@ rand = "0.8.5"
 puffin = "0.13.3"
 puffin_egui = "0.17.0"
 
+vfs = "0.9.0"
+
 stardust_common = { path = "../stardust_common" }
 stardust_world = { path = "../stardust_world" }
