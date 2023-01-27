@@ -37,6 +37,7 @@ pub struct EngineInternals {
     vfs: AltrootFS,
     pub resources: ResourceManager,
     pub current_scene: Scene,
+    pub current_scene_path: Option<PathBuf>,
 
     pub console_pending_writes: VecDeque<String>,
 }
@@ -78,6 +79,7 @@ impl Engine {
                 vfs: AltrootFS::new(VfsPath::new(PhysicalFS::new("."))),
                 resources: ResourceManager::new(),
                 current_scene: Scene::new(),
+                current_scene_path: None,
 
                 console_pending_writes: VecDeque::new(),
             },
@@ -159,6 +161,8 @@ impl App for Engine {
             let b = (rng.next_u32() % 255) as u8;
             self.world.set_voxel(stardust_common::voxel::Voxel::new([r,g,b], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
         }
+
+        self.internals.current_scene.update(self.internals.delta_s);
     }
 
     fn render(&mut self, ctx: &mut Context) {

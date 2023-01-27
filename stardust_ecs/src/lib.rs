@@ -68,24 +68,21 @@ impl Scene {
     /// all user scripts.
     pub fn update(&mut self, dt: f32) {
         // Update all model positions
-        let mut dispatcher = DispatcherBuilder::new()
-            .with(TransformPosModelVPosUpdate { voxels_per_meter: self.settings.voxels_per_meter }, "sys_transpos_mod_vpos_update", &[])
-            .build();
-        dispatcher.dispatch(&mut self.world);
+        let mut sys_transpos_mod_vpos_update = TransformPosModelVPosUpdate { voxels_per_meter: self.settings.voxels_per_meter };
+        sys_transpos_mod_vpos_update.run_now(&mut self.world);
+
+        self.world.maintain();
     }
 
     pub fn entity_list(&mut self) -> Vec<EntityInfo> {
         let mut info = Vec::new();
 
         {
-            let entity_info_list_gather = EntityInfoListGather {
+            let mut entity_info_list_gather = EntityInfoListGather {
                 info: &mut info
             };
 
-            let mut dispatcher = DispatcherBuilder::new()
-                .with(entity_info_list_gather, "sys_entity_info_list_gather", &[])
-                .build();
-            dispatcher.dispatch(&mut self.world);
+            entity_info_list_gather.run_now(&mut self.world);
         }
 
         info
