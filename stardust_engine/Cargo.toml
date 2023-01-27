@@ -6,14 +6,17 @@ edition = "2021"
 [dependencies]
 log = "0.4"
 foxtail = { path = "../../foxtail/foxtail" }
-egui = "0.19.0"
+egui = "0.20"
+egui_extras = { version = "0.20", features = ["image"] }
 
 winit_input_helper = "0.13.0"
 rand = "0.8.5"
-puffin = "0.13.3"
-puffin_egui = "0.17.0"
+puffin = "0.14"
+puffin_egui = "0.19"
 
 vfs = "0.9.0"
+image = { version = "0.24", features = ["jpeg","png"] }
 
 stardust_common = { path = "../stardust_common" }
 stardust_world = { path = "../stardust_world" }
+stardust_ecs = { path = "../stardust_ecs" }

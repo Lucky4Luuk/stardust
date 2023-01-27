@@ -1,6 +1,5 @@
 use stardust_common::{
-    voxel::IsVoxel,
-    model::IsModel,
+    voxel::Voxel as SDVoxel,
     math::*,
 };
 
@@ -24,8 +23,8 @@ pub struct MagicaVoxelModel {
     max: IVec3,
 }
 
-impl<V: IsVoxel> IsModel<V> for MagicaVoxelModel {
-    fn from_path(path: &str) -> Result<Self> {
+impl MagicaVoxelModel {
+    pub fn from_path(path: &str) -> Result<Self> {
         let model = dot_vox::load(path).map_err(|e| MagicaVoxelError(e.to_string()))?;
 
         let mut voxels = Vec::new();
@@ -65,11 +64,11 @@ impl<V: IsVoxel> IsModel<V> for MagicaVoxelModel {
         })
     }
 
-    fn voxel_bounds(&self) -> (IVec3, IVec3) {
+    pub fn voxel_bounds(&self) -> (IVec3, IVec3) {
         (self.min, self.max)
     }
 
-    fn get_voxel(&self, pos: IVec3) -> V {
+    pub fn get_voxel(&self, pos: IVec3) -> SDVoxel {
         todo!();
     }
 }

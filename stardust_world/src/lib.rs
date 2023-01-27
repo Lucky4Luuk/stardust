@@ -4,16 +4,15 @@ extern crate log;
 use foxtail::prelude::*;
 
 use stardust_common::math::*;
+use stardust_common::voxel::Voxel;
 
 pub mod usage_flags;
 pub mod layer0;
 pub mod brick;
-pub mod voxel;
 
 use usage_flags::*;
 use layer0::*;
 use brick::*;
-use voxel::*;
 
 pub const BRICK_POOL_SIZE: usize = 32768;
 pub const LAYER0_POOL_SIZE: usize = 8192;

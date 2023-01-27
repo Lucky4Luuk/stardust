@@ -10,13 +10,16 @@ use foxtail::prelude::*;
 
 use stardust_common::camera::Camera;
 use stardust_common::math::*;
+use stardust_ecs::Scene;
 
 use vfs::*;
 
 pub mod renderer;
 pub mod widgets;
+pub mod resource_manager;
 
 use widgets::*;
+use resource_manager::*;
 
 pub struct EngineInternals {
     world: stardust_world::World,
@@ -32,19 +35,20 @@ pub struct EngineInternals {
     last_frame: Instant,
 
     vfs: AltrootFS,
+    pub resources: ResourceManager,
+    pub current_scene: Scene,
 
     pub console_pending_writes: VecDeque<String>,
 }
 
 pub struct Engine {
-    show_flamegraph: bool,
-    widgets: WidgetContainer,
+    widgets: WidgetManager,
     internals: EngineInternals,
 }
 
 impl Engine {
     fn new(ctx: &mut Context) -> Self {
-        let widgets = WidgetContainer::new();
+        let widgets = WidgetManager::new();
 
         ctx.set_window_title("Stardust engine");
         trace!("Demo created!");
@@ -57,7 +61,6 @@ impl Engine {
         let render_size = ctx.size();
 
         let mut obj = Self {
-            show_flamegraph: false,
             widgets: widgets,
             internals: EngineInternals {
                 world: world,
@@ -73,13 +76,17 @@ impl Engine {
                 last_frame: Instant::now(),
 
                 vfs: AltrootFS::new(VfsPath::new(PhysicalFS::new("."))),
+                resources: ResourceManager::new(),
+                current_scene: Scene::new(),
 
                 console_pending_writes: VecDeque::new(),
             },
         };
 
-        obj.widgets.add_docked(Box::new(Console::new()), DockLoc::Left);
-        obj.widgets.add_docked(Box::new(FsBrowser::new()), DockLoc::Right);
+        obj.widgets.add_widget(Box::new(FsBrowser::new()), DockLoc::Bottom);
+        obj.widgets.add_widget(Box::new(Console::new()), DockLoc::Bottom);
+
+        obj.widgets.add_widget(Box::new(SceneHierachy::new()), DockLoc::Left);
 
         obj
     }
@@ -102,10 +109,6 @@ impl App for Engine {
     fn event(&mut self, input: &Input) {
         let movespeed = if input.held_shift() { 50.0 } else { 25.0 };
         let rotspeed = 3.0;
-
-        // if input.key_pressed(KeyCode::F) && input.held_control() {
-        //     self.show_console = !self.show_console;
-        // }
 
         if input.key_held(KeyCode::Right) {
             self.cam_rot_y += rotspeed * self.delta_s;
@@ -154,7 +157,7 @@ impl App for Engine {
             let r = (rng.next_u32() % 255) as u8;
             let g = (rng.next_u32() % 255) as u8;
             let b = (rng.next_u32() % 255) as u8;
-            self.world.set_voxel(stardust_world::voxel::Voxel::new([r,g,b], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
+            self.world.set_voxel(stardust_common::voxel::Voxel::new([r,g,b], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
         }
     }
 
@@ -194,6 +197,7 @@ impl App for Engine {
             self.widgets.draw_docked(egui_ctx, &mut self.internals);
 
             // Draw floating windows
+            self.widgets.draw_floating(egui_ctx, &mut self.internals);
             egui::Window::new("debug window")
                 .resizable(true)
                 .show(egui_ctx, |ui| {
@@ -205,9 +209,6 @@ impl App for Engine {
                     ui.label(&format!("bricks used: {}/{}", self.world.bricks_used, stardust_world::BRICK_POOL_SIZE));
                     ui.label(&format!("layer0 used: {}/{}", self.world.layer0_used, stardust_world::LAYER0_POOL_SIZE));
                 });
-            if self.show_flamegraph {
-                puffin_egui::profiler_window(&egui_ctx);
-            }
 
             let available_rect = egui_ctx.available_rect();
             let available_size = (

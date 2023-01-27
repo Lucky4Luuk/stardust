@@ -4,4 +4,5 @@ members = [
 	"stardust_common",
 	"stardust_world",
 	"stardust_magica_voxel",
+	"stardust_ecs",
 ]

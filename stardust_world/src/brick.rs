@@ -1,6 +1,6 @@
 use stardust_common::math::*;
 
-use super::voxel::Voxel;
+use stardust_common::voxel::Voxel;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
