@@ -1,3 +1,4 @@
+#[macro_use] extern crate specs;
 use specs::prelude::*;
 
 use stardust_common::math::*;
@@ -8,11 +9,9 @@ pub use transform::*;
 mod model;
 pub use model::*;
 
-#[derive(Debug)]
+#[derive(Debug, Component)]
+#[storage(VecStorage)]
 pub struct CompName(String);
-impl Component for CompName {
-    type Storage = VecStorage<Self>;
-}
 
 #[derive(Debug)]
 pub struct SceneSettings {

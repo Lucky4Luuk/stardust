@@ -2,15 +2,12 @@ use specs::prelude::*;
 
 use stardust_common::math::*;
 
-#[derive(Debug)]
+#[derive(Debug, Component)]
+#[storage(VecStorage)]
 pub struct CompTransform {
     pub position: Vec3,
     pub rotation: Quat,
     pub scale: Vec3,
-}
-
-impl Component for CompTransform {
-    type Storage = VecStorage<Self>;
 }
 
 impl CompTransform {

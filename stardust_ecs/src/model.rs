@@ -2,14 +2,10 @@ use specs::prelude::*;
 
 use stardust_common::math::*;
 
-#[derive(Debug)]
+#[derive(Debug, Component)]
+#[storage(DenseVecStorage)]
 pub struct CompModel {
     pub vox_pos: UVec3,
-}
-
-impl Component for CompModel {
-    // DenseVecStorage used here because models might store a lot of data
-    type Storage = DenseVecStorage<Self>;
 }
 
 impl CompModel {
