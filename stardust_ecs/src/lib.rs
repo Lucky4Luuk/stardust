@@ -86,6 +86,10 @@ impl Scene {
 
         info
     }
+
+    pub fn entity_component_list(&mut self, entity: &EntityInfo) {
+
+    }
 }
 
 struct EntityInfoListGather<'i> {
