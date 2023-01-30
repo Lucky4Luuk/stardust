@@ -3,6 +3,7 @@ members = [
 	"stardust_engine",
 	"stardust_common",
 	"stardust_world",
-	"stardust_magica_voxel",
 	"stardust_ecs",
+	"stardust_sdvx",
+	"stardust_magica_voxel",
 ]
