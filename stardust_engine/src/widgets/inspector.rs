@@ -53,9 +53,11 @@ impl super::Widget for Inspector {
                 // }
                 dirty = dirty || draw_generic_component(ui, engine, "Name", comp_info.name_component.fields());
                 if let Some(ctransform) = &mut comp_info.transform_component {
+                    ui.separator();
                     dirty = dirty || draw_generic_component(ui, engine, "Transform", ctransform.fields());
                 }
                 if let Some(cmodel) = &mut comp_info.model_component {
+                    ui.separator();
                     dirty = dirty || draw_generic_component(ui, engine, "Model", cmodel.fields());
                 }
 
