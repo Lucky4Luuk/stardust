@@ -1,6 +1,8 @@
 #[macro_use] extern crate specs;
 use specs::prelude::*;
 
+use std::collections::BTreeMap;
+
 use stardust_common::math::*;
 
 mod transform;
@@ -9,9 +11,26 @@ pub use transform::*;
 mod model;
 pub use model::*;
 
+pub mod prelude;
+
+pub enum Value<'a> {
+    String(&'a mut String),
+    Float(&'a mut f32),
+    Vec2(&'a mut f32, &'a mut f32),
+    Vec3(&'a mut f32, &'a mut f32, &'a mut f32),
+    Vec4(&'a mut f32, &'a mut f32, &'a mut f32, &'a mut f32),
+}
+
 #[derive(Debug, Component, Clone)]
 #[storage(VecStorage)]
-pub struct CompName(String);
+pub struct CompName(pub String);
+impl CompName {
+    pub fn fields(&mut self) -> BTreeMap<String, Value> {
+        let mut map = BTreeMap::new();
+        map.insert(String::from("Name"), Value::String(&mut self.0));
+        map
+    }
+}
 
 #[derive(Debug)]
 pub struct SceneSettings {
@@ -37,6 +56,7 @@ pub struct EntityInfo {
     pub kind: EntityType,
 }
 
+#[derive(Clone)]
 pub struct EntityComponentInfo {
     pub entity: Entity,
     pub name_component: CompName,
@@ -63,8 +83,8 @@ impl Scene {
         }
     }
 
-    pub fn create_entity<F: Fn(EntityBuilder) -> EntityBuilder>(&mut self, name: String, f: F) {
-        f(self.world.create_entity().with(CompName(name))).build();
+    pub fn create_entity<S: Into<String>, F: Fn(EntityBuilder) -> EntityBuilder>(&mut self, name: S, f: F) {
+        f(self.world.create_entity().with(CompName(name.into()))).build();
     }
 
     /// dt = deltatime in seconds
@@ -97,6 +117,10 @@ impl Scene {
         info
     }
 
+    pub fn entity_is_alive(&self, entity: Entity) -> bool {
+        self.world.is_alive(entity)
+    }
+
     // TODO: Check if entity is still alive
     // TODO: Optimise this function, seems like it won't scale very well
     pub fn entity_component_list(&mut self, entity: Entity) -> EntityComponentInfo {
@@ -110,6 +134,27 @@ impl Scene {
             name_component: name_storage.get(entity).unwrap().clone(),
             transform_component: transform_storage.get(entity).map(|c| c.clone()),
             model_component: model_storage.get(entity).map(|c| c.clone()),
+        }
+    }
+
+    // TODO: Check if entity is still alive
+    // TODO: Optimise this function, seems like it won't scale very well
+    pub fn entity_upload_component_list(&mut self, entity: Entity, comp_info: EntityComponentInfo) {
+        // Storages for each component
+        let mut name_storage = self.world.write_storage::<CompName>();
+        let mut transform_storage = self.world.write_storage::<CompTransform>();
+        let mut model_storage = self.world.write_storage::<CompModel>();
+
+        if let Some(cname) = name_storage.get_mut(entity) {
+            cname.0 = comp_info.name_component.0;
+        }
+
+        if let Some(ctransform) = comp_info.transform_component {
+            if let Some(cur_ctransform) = transform_storage.get_mut(entity) {
+                *cur_ctransform = ctransform;
+            } else {
+                transform_storage.insert(entity, ctransform).expect("Failed to add component!");
+            }
         }
     }
 }

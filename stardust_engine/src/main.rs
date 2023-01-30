@@ -10,7 +10,7 @@ use foxtail::prelude::*;
 
 use stardust_common::camera::Camera;
 use stardust_common::math::*;
-use stardust_ecs::Scene;
+use stardust_ecs::prelude::*;
 
 use vfs::*;
 
@@ -40,6 +40,7 @@ pub struct EngineInternals {
     pub current_scene_path: Option<PathBuf>,
 
     pub console_pending_writes: VecDeque<String>,
+    pub selected_entity: Option<Entity>,
 }
 
 pub struct Engine {
@@ -84,6 +85,7 @@ impl Engine {
                 current_scene_path: None,
 
                 console_pending_writes: VecDeque::new(),
+                selected_entity: None,
             },
         };
 
@@ -91,6 +93,7 @@ impl Engine {
         obj.widgets.add_widget(Box::new(Console::new()), DockLoc::Bottom);
 
         obj.widgets.add_widget(Box::new(SceneHierachy::new()), DockLoc::Left);
+        obj.widgets.add_widget(Box::new(Inspector::new()), DockLoc::Right);
 
         obj
     }

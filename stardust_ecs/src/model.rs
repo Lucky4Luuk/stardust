@@ -1,6 +1,10 @@
 use specs::prelude::*;
 
+use std::collections::BTreeMap;
+
 use stardust_common::math::*;
+
+use crate::Value;
 
 #[derive(Debug, Component, Clone)]
 #[storage(DenseVecStorage)]
@@ -13,6 +17,11 @@ impl CompModel {
         Self {
             vox_pos: uvec3(0,0,0),
         }
+    }
+
+    pub fn fields(&mut self) -> BTreeMap<String, Value> {
+        let mut map = BTreeMap::new();
+        map
     }
 
     /// Returns true if the new location is different to the current position

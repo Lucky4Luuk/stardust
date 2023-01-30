@@ -1,3 +1,6 @@
+mod custom;
+pub use custom::*;
+
 mod fs_browser;
 pub use fs_browser::*;
 
@@ -12,6 +15,9 @@ pub use scene_hierarchy::*;
 
 mod perf_debug;
 pub use perf_debug::*;
+
+mod inspector;
+pub use inspector::*;
 
 pub trait Widget {
     fn title(&self) -> String;
@@ -175,14 +181,6 @@ impl WidgetManager {
             egui::TopBottomPanel::bottom("docked_bottom").resizable(true).show(ctx, |ui| {
                 ui.columns(self.bottom_docked_widgets.len(), |columns| {
                     for (i, docked_widget) in self.bottom_docked_widgets.iter().enumerate() {
-                        // if i == self.active_bottom_docked_widget {
-                        //     columns[i].label(docked_widget.widget.title());
-                        //     // columns[i].add_enabled(false, egui::Button::new(docked_widget.widget.title()));
-                        // } else {
-                        //     if columns[i].button(docked_widget.widget.title()).clicked() {
-                        //         self.active_bottom_docked_widget = i;
-                        //     }
-                        // }
                         columns[i].selectable_value(&mut self.active_bottom_docked_widget, i, docked_widget.widget.title());
                     }
                 });
