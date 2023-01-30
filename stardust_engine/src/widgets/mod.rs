@@ -10,6 +10,9 @@ pub use flamegraph::*;
 mod scene_hierarchy;
 pub use scene_hierarchy::*;
 
+mod perf_debug;
+pub use perf_debug::*;
+
 pub trait Widget {
     fn title(&self) -> String;
     fn resizable(&self) -> bool { true }
@@ -101,6 +104,7 @@ impl WidgetManager {
 
     pub fn draw_docked(&mut self, ctx: &egui::Context, engine: &mut crate::EngineInternals) {
         // Menubar
+        // TODO: Close windows with duplicate IDs
         egui::TopBottomPanel::top("menubar").resizable(false).show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -112,7 +116,10 @@ impl WidgetManager {
                     if ui.button("Flamegraph").clicked() {
                         self.add_widget(Box::new(Flamegraph::new()), DockLoc::Floating);
                     }
-                })
+                    if ui.button("PerfDebug").clicked() {
+                        self.add_widget(Box::new(PerfDebug), DockLoc::Floating);
+                    }
+                });
             });
         });
 

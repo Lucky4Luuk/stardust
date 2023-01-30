@@ -202,17 +202,6 @@ impl App for Engine {
 
             // Draw floating windows
             self.widgets.draw_floating(egui_ctx, &mut self.internals);
-            egui::Window::new("debug window")
-                .resizable(true)
-                .show(egui_ctx, |ui| {
-                    ui.heading("Debug");
-                    ui.label(&format!("fps: {}", 1.0 / self.delta_s));
-                    ui.label(&format!("ms: {}", self.delta_s * 1000.0));
-                    ui.label(&format!("render resolution: {:?}", size));
-                    ui.label(&format!("cam_pos: {:?}", self.camera.pos));
-                    ui.label(&format!("bricks used: {}/{}", self.world.bricks_used, stardust_world::BRICK_POOL_SIZE));
-                    ui.label(&format!("layer0 used: {}/{}", self.world.layer0_used, stardust_world::LAYER0_POOL_SIZE));
-                });
 
             let available_rect = egui_ctx.available_rect();
             let available_size = (
