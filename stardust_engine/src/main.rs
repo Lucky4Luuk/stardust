@@ -49,6 +49,8 @@ pub struct Engine {
 
 impl Engine {
     fn new(ctx: &mut Context) -> Self {
+        ctx.set_maximized(true);
+
         let widgets = WidgetManager::new();
 
         ctx.set_window_title("Stardust engine");

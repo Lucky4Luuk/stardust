@@ -69,11 +69,25 @@ impl WidgetManager {
 
     pub fn add_widget(&mut self, widget: Box<dyn Widget>, loc: DockLoc) {
         if loc == DockLoc::Floating {
-            let floating_widget = FloatingWidget {
-                widget: widget,
-                open: true,
-            };
-            self.floating_widgets.push(floating_widget);
+            // Check if widget is already open
+            let title = widget.title();
+            let mut existing = None;
+            'search: for fw in &mut self.floating_widgets {
+                if fw.widget.title() == title {
+                    existing = Some(fw);
+                    break 'search;
+                }
+            }
+
+            if let Some(existing) = existing {
+                // TODO: Focus this widget
+            } else {
+                let floating_widget = FloatingWidget {
+                    widget: widget,
+                    open: true,
+                };
+                self.floating_widgets.push(floating_widget);
+            }
         } else {
             let docked_widget = DockedWidget {
                 widget: widget,
