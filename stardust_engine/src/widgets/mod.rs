@@ -93,8 +93,6 @@ impl WidgetManager {
         for floating_widget in &mut self.floating_widgets {
             let title = floating_widget.widget.title();
             egui::Window::new(&title).open(&mut floating_widget.open).resizable(floating_widget.widget.resizable()).show(ctx, |ui| {
-                ui.heading(title);
-                ui.separator();
                 floating_widget.widget.draw(ui, engine);
             });
         }
