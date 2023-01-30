@@ -2,7 +2,7 @@ use specs::prelude::*;
 
 use stardust_common::math::*;
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone)]
 #[storage(DenseVecStorage)]
 pub struct CompModel {
     pub vox_pos: UVec3,

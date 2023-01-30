@@ -2,7 +2,7 @@ use specs::prelude::*;
 
 use stardust_common::math::*;
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone)]
 #[storage(VecStorage)]
 pub struct CompTransform {
     pub position: Vec3,

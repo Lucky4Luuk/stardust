@@ -9,7 +9,7 @@ pub use transform::*;
 mod model;
 pub use model::*;
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone)]
 #[storage(VecStorage)]
 pub struct CompName(String);
 
@@ -27,7 +27,7 @@ impl SceneSettings {
 }
 
 pub enum EntityType {
-    Entity,
+    Entity(Entity),
     Camera,
     Light,
 }
@@ -37,9 +37,15 @@ pub struct EntityInfo {
     pub kind: EntityType,
 }
 
+pub struct EntityComponentInfo {
+    pub entity: Entity,
+    pub name_component: CompName,
+    pub transform_component: Option<CompTransform>,
+    pub model_component: Option<CompModel>,
+}
+
 pub struct Scene {
     world: World,
-    entities: Vec<Entity>,
 
     settings: SceneSettings,
 }
@@ -52,14 +58,13 @@ impl Scene {
         world.register::<CompModel>();
         Self {
             world: world,
-            entities: Vec::new(),
 
             settings: SceneSettings::new(),
         }
     }
 
     pub fn create_entity<F: Fn(EntityBuilder) -> EntityBuilder>(&mut self, name: String, f: F) {
-        self.entities.push(f(self.world.create_entity().with(CompName(name))).build());
+        f(self.world.create_entity().with(CompName(name))).build();
     }
 
     /// dt = deltatime in seconds
@@ -77,34 +82,34 @@ impl Scene {
         let mut info = Vec::new();
 
         {
-            let mut entity_info_list_gather = EntityInfoListGather {
-                info: &mut info
-            };
-
-            entity_info_list_gather.run_now(&mut self.world);
+            let entity_storage = self.world.entities();
+            let name_storage = self.world.read_storage::<CompName>();
+            for (entity, name) in (&entity_storage, &name_storage).join() {
+                info.push(
+                    EntityInfo {
+                        name: name.0.clone(),
+                        kind: EntityType::Entity(entity),
+                    }
+                );
+            }
         }
 
         info
     }
 
-    pub fn entity_component_list(&mut self, entity: &EntityInfo) {
+    // TODO: Check if entity is still alive
+    // TODO: Optimise this function, seems like it won't scale very well
+    pub fn entity_component_list(&mut self, entity: Entity) -> EntityComponentInfo {
+        // Storages for each component
+        let name_storage = self.world.read_storage::<CompName>();
+        let transform_storage = self.world.read_storage::<CompTransform>();
+        let model_storage = self.world.read_storage::<CompModel>();
 
-    }
-}
-
-struct EntityInfoListGather<'i> {
-    info: &'i mut Vec<EntityInfo>,
-}
-
-impl<'a, 'i> System<'a> for EntityInfoListGather<'i> {
-    type SystemData = ReadStorage<'a, CompName>;
-
-    fn run(&mut self, cname: Self::SystemData) {
-        for name in cname.join() {
-            self.info.push(EntityInfo {
-                name: name.0.clone(),
-                kind: EntityType::Entity,
-            });
+        EntityComponentInfo {
+            entity: entity,
+            name_component: name_storage.get(entity).unwrap().clone(),
+            transform_component: transform_storage.get(entity).map(|c| c.clone()),
+            model_component: model_storage.get(entity).map(|c| c.clone()),
         }
     }
 }
