@@ -156,13 +156,15 @@ impl WidgetManager {
             egui::TopBottomPanel::bottom("docked_bottom").resizable(true).show(ctx, |ui| {
                 ui.columns(self.bottom_docked_widgets.len(), |columns| {
                     for (i, docked_widget) in self.bottom_docked_widgets.iter().enumerate() {
-                        if i == self.active_bottom_docked_widget {
-                            columns[i].label(docked_widget.widget.title());
-                        } else {
-                            if columns[i].button(docked_widget.widget.title()).clicked() {
-                                self.active_bottom_docked_widget = i;
-                            }
-                        }
+                        // if i == self.active_bottom_docked_widget {
+                        //     columns[i].label(docked_widget.widget.title());
+                        //     // columns[i].add_enabled(false, egui::Button::new(docked_widget.widget.title()));
+                        // } else {
+                        //     if columns[i].button(docked_widget.widget.title()).clicked() {
+                        //         self.active_bottom_docked_widget = i;
+                        //     }
+                        // }
+                        columns[i].selectable_value(&mut self.active_bottom_docked_widget, i, docked_widget.widget.title());
                     }
                 });
                 ui.separator();

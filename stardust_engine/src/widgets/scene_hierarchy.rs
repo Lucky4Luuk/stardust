@@ -18,7 +18,13 @@ impl super::Widget for SceneHierachy {
     }
 
     fn draw(&mut self, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
-
+        ui.columns(2, |columns| {
+            columns[0].label("Name");
+            columns[1].menu_button("+", |ui| {
+                ui.button("Entity");
+            });
+        });
+        ui.separator();
         egui::Grid::new("scene_hierarchy").striped(true).num_columns(1).show(ui, |ui| {
             for entity in engine.current_scene.entity_list() {
                 ui.horizontal(|ui| {
