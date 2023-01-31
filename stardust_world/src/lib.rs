@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate log;
 
+use rayon::prelude::*;
 use foxtail::prelude::*;
 
 use stardust_common::math::*;
@@ -203,31 +204,44 @@ impl World {
 
     pub fn process(&mut self) {
         puffin::profile_function!();
-        self.layer0_pool_flag_map
-            .iter_mut()
+        let to_write: Vec<usize> = self.layer0_pool_flag_map
+            .par_iter_mut()
             .enumerate()
-            .for_each(|(i, flag)| {
+            .map(|(i, flag)| {
                 if flag.dirty() {
-                    self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
+                    flag.set_dirty(false);
+                    i + 1
+                } else {
+                    0
                 }
-                flag.set_dirty(false);
-            });
+            }).filter(|i| *i > 0).collect();
 
-        self.brick_pool_flag_map
-            .iter_mut()
+        to_write.iter().for_each(|i| {
+            let i = i - 1;
+            self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
+        });
+
+        let to_write: Vec<usize> = self.brick_pool_flag_map
+            .par_iter_mut()
             .enumerate()
-            .for_each(|(i, flag)| {
+            .map(|(i, flag)| {
+                let mut ret = 0;
                 if flag.dirty() {
                     if !self.brick_pool_cpu[i].is_empty() {
-                        self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
+                        ret = i + 1;
                     } else if flag.in_use() {
                         // Brick is empty now, free it up
-                        self.bricks_used -= 1;
                         flag.set_in_use(false);
                     }
                     flag.set_dirty(false);
                 }
-            });
+                ret
+            }).filter(|i| *i > 0).collect();
+
+        to_write.iter().for_each(|i| {
+            let i = i - 1;
+            self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
+        });
 
         // TODO: This is always uploaded, but that's very much overkill and bad for performance scaling lol
         self.layer0_map.write(0, &self.layer0_map_cpu[..]);
