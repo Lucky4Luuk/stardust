@@ -238,10 +238,15 @@ impl World {
             self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
         });
 
-        to_write_brick.into_iter().for_each(|i| {
+        // to_write_brick.into_iter().for_each(|i| {
+        //     let i = i - 1;
+        //     self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
+        // });
+        let to_write_brick_data = to_write_brick.into_iter().map(|i| {
             let i = i - 1;
-            self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
+            (i, &self.brick_pool_cpu[i])
         });
+        self.brick_pool.write_slice(to_write_brick_data);
 
         // TODO: This is always uploaded, but that's very much overkill and bad for performance scaling lol
         self.layer0_map.write(0, &self.layer0_map_cpu[..]);
