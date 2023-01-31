@@ -238,6 +238,7 @@ impl World {
             self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
         });
 
+        // Performance of these 2 are pretty much identical
         // to_write_brick.into_iter().for_each(|i| {
         //     let i = i - 1;
         //     self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
