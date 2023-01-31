@@ -44,7 +44,7 @@ pub struct Model {
 
 impl Model {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        let bytes = bytes.into_iter();
+        let mut bytes = bytes.into_iter();
         let mut header_bytes: Vec<u8> = Vec::new();
         for _ in 0..16 {
             header_bytes.push(*bytes.next().ok_or(ParseError::UnexpectedEOF)?);
@@ -52,13 +52,33 @@ impl Model {
         let header = Header::from_bytes(&header_bytes);
         let voxel_count = header.voxel_count;
         let mut voxels = Vec::new();
-        for i in 0..voxel_count {
+        for _ in 0..voxel_count {
             let a = *bytes.next().ok_or(ParseError::UnexpectedEOF)?;
             let b = *bytes.next().ok_or(ParseError::UnexpectedEOF)?;
             let c = *bytes.next().ok_or(ParseError::UnexpectedEOF)?;
             let d = *bytes.next().ok_or(ParseError::UnexpectedEOF)?;
             let raw = u32::from_le_bytes([a,b,c,d]);
             voxels.push(Voxel(raw));
+        }
+
+        let remaining_bytes: Vec<u8> = bytes.map(|b| *b).collect();
+
+        let brick_byte_size = header.brick_size as usize * header.brick_size as usize * header.brick_size as usize * 4;
+        let mut bricks = Vec::new();
+        for brick_bytes in remaining_bytes.chunks_exact(brick_byte_size) {
+            let mut indices = Vec::new();
+            let mut bb_iter = brick_bytes.iter();
+            for _ in 0..(brick_byte_size / 4) {
+                let a = *bb_iter.next().ok_or(ParseError::UnexpectedEOF)?;
+                let b = *bb_iter.next().ok_or(ParseError::UnexpectedEOF)?;
+                let c = *bb_iter.next().ok_or(ParseError::UnexpectedEOF)?;
+                let d = *bb_iter.next().ok_or(ParseError::UnexpectedEOF)?;
+                let raw = u32::from_le_bytes([a,b,c,d]);
+                indices.push(raw);
+            }
+            bricks.push(Brick {
+                indices
+            });
         }
 
         Ok(Self {
