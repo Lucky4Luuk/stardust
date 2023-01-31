@@ -239,15 +239,15 @@ impl World {
         });
 
         // Performance of these 2 are pretty much identical
-        // to_write_brick.into_iter().for_each(|i| {
-        //     let i = i - 1;
-        //     self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
-        // });
-        let to_write_brick_data = to_write_brick.into_iter().map(|i| {
+        to_write_brick.into_iter().for_each(|i| {
             let i = i - 1;
-            (i, &self.brick_pool_cpu[i])
+            self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
         });
-        self.brick_pool.write_slice(to_write_brick_data);
+        // let to_write_brick_data = to_write_brick.into_iter().map(|i| {
+        //     let i = i - 1;
+        //     (i, &self.brick_pool_cpu[i])
+        // });
+        // self.brick_pool.write_slice(to_write_brick_data);
 
         // TODO: This is always uploaded, but that's very much overkill and bad for performance scaling lol
         self.layer0_map.write(0, &self.layer0_map_cpu[..]);

@@ -1,5 +1,4 @@
 use stardust_common::math::*;
-
 use stardust_common::voxel::Voxel;
 
 #[repr(C)]
