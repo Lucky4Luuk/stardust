@@ -28,6 +28,9 @@ impl super::Widget for ResourceInspector {
                 ui.label("Resource could not be loaded.");
                 ui.add(egui::TextEdit::multiline(&mut self.error_buf).code_editor().interactive(false));
             },
+            ManagedResource::Info(info) => {
+                ui.label(&*info);
+            },
             _ => { ui.label("Filetype has no preview yet"); },
         }
     }

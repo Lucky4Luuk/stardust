@@ -91,6 +91,8 @@ impl Engine {
         obj.widgets.add_widget(Box::new(SceneHierachy::new()), DockLoc::Left);
         obj.widgets.add_widget(Box::new(Inspector::new()), DockLoc::Right);
 
+        obj.widgets.add_widget(Box::new(PerfDebug), DockLoc::Floating);
+
         obj
     }
 }
@@ -158,7 +160,7 @@ impl App for Engine {
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
         // Add random voxels to the world
-        for _ in 0..16 {
+        for _ in 0..16384 {
             let mut rng = rand::thread_rng();
             let x = (rng.next_u32() % 16384) / 64 + 1024;
             let y = (rng.next_u32() % 16384) / 64 + 1024;

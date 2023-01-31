@@ -84,7 +84,6 @@ impl ResourceManager {
                 path_wo_ext.pop();
             }
         }
-        trace!("Loading: {} / ext: {}", path_wo_ext, extension);
         match extension {
             "sdvx" => self.load_model(path),
             "vox" => {
@@ -172,6 +171,9 @@ impl ResourceManager {
     pub fn fetch_resource(&self, path: &str) -> ManagedResource {
         if let Ok(model) = self.fetch_model(path) {
             return ManagedResource::Model(Rc::clone(model));
+        }
+        if let Some(info) = self.resource_info.get(path) {
+            return ManagedResource::Info(info.clone());
         }
         ManagedResource::Error(self.read_errors.get(path).map(|e| Rc::clone(e)).unwrap_or(Rc::new(ResourceManagerError::PathDoesntExist.into())))
     }
