@@ -229,7 +229,7 @@ impl World {
                 }
             });
 
-        // TODO: This is always uploaded, but that's very much overkill and bad for performance lol
+        // TODO: This is always uploaded, but that's very much overkill and bad for performance scaling lol
         self.layer0_map.write(0, &self.layer0_map_cpu[..]);
     }
 }

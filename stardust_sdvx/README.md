@@ -8,8 +8,8 @@ Version 0.1
 ## Overview
 Each file contains 1 model.
 1. First comes the header, which gets padded to 16 bytes in length.
-2. After the header first comes the list of voxels, sized `( voxel_count * voxel_size )`.
-3. After the list of voxels comes the list of bricks, which are sized `( (brick_size^3) * index_size )`.
+2. After the header first comes the list of voxels, sized `(voxel_count * voxel_size)`.
+3. After the list of voxels comes the list of bricks, which are sized `(brick_header_size + (brick_size^3) * index_size)`. The brick header is padded to 8 bytes in length.
 
 ## Part specification
 ### Header
@@ -19,6 +19,7 @@ Each file contains 1 model.
 | 2     | u16   | Minor version |
 | 2     | u16   | Brick size    |
 | 8     | u64   | Voxel count   |
+| 2     | u16   | Padding       |
 
 ### Voxel data
 Voxels are stored as unsigned 32 bit integers.
@@ -38,6 +39,15 @@ The bricks size is variable to allow some headroom for compression vs performanc
 More information on the bricks can be found [here](#bricks).
 
 ### Bricks
-Each brick is defined as a `[brick_size x brick_size x brick_size]` array of voxel indices.
+Each brick is defined as a brick header, followed by a `[brick_size x brick_size x brick_size]` array of voxel indices.
 These indices are meant to index into the list of voxels. Index 0 points at the first voxel, index 1 points at the 2nd voxel, etc.
-Each index is an unsigned 32 bit integer.
+Each index is an unsigned 32 bit integer. Voxels are ordered 0->brick_size on each axis, starting with X, then Y, then Z.
+Bricks are placed on a grid with size brick_size. Example: `brick_location_x = 3` means the [0,0,0] voxel in the brick is located at `3 * brick_size` in world coordinates.
+
+#### Brick header
+| Bytes | Type  | Description   |
+|-------|-------|---------------|
+| 2     | u16   | X location    |
+| 2     | u16   | Y location    |
+| 2     | u16   | Z location    |
+| 2     | u16   | Padding       |
