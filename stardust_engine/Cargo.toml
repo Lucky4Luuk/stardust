@@ -24,3 +24,5 @@ stardust_world = { path = "../stardust_world" }
 stardust_ecs = { path = "../stardust_ecs" }
 stardust_sdvx = { path = "../stardust_sdvx" }
 stardust_magica_voxel = { path = "../stardust_magica_voxel" }
+
+rayon = "1.6.1"

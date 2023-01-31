@@ -878,6 +878,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1757,6 +1766,7 @@ dependencies = [
  "puffin 0.14.2",
  "puffin_egui",
  "rand",
+ "rayon",
  "stardust_common",
  "stardust_ecs",
  "stardust_magica_voxel",
@@ -1793,6 +1803,7 @@ name = "stardust_world"
 version = "0.1.0"
 dependencies = [
  "foxtail",
+ "itertools",
  "log",
  "puffin 0.13.3",
  "rayon",

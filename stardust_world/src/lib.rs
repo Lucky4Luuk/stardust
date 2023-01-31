@@ -204,7 +204,7 @@ impl World {
 
     pub fn process(&mut self) {
         puffin::profile_function!();
-        let to_write: Vec<usize> = self.layer0_pool_flag_map
+        let to_write_layer0: Vec<usize> = self.layer0_pool_flag_map
             .par_iter_mut()
             .enumerate()
             .map(|(i, flag)| {
@@ -216,12 +216,7 @@ impl World {
                 }
             }).filter(|i| *i > 0).collect();
 
-        to_write.iter().for_each(|i| {
-            let i = i - 1;
-            self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
-        });
-
-        let to_write: Vec<usize> = self.brick_pool_flag_map
+        let to_write_brick: Vec<usize> = self.brick_pool_flag_map
             .par_iter_mut()
             .enumerate()
             .map(|(i, flag)| {
@@ -238,7 +233,12 @@ impl World {
                 ret
             }).filter(|i| *i > 0).collect();
 
-        to_write.iter().for_each(|i| {
+        to_write_layer0.into_iter().for_each(|i| {
+            let i = i - 1;
+            self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
+        });
+
+        to_write_brick.into_iter().for_each(|i| {
             let i = i - 1;
             self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
         });

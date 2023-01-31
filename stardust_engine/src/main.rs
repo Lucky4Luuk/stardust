@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
+use rayon::prelude::*;
 use foxtail::prelude::*;
 
 use stardust_common::camera::Camera;
@@ -160,7 +161,7 @@ impl App for Engine {
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
         // Add random voxels to the world
-        for _ in 0..16384 {
+        let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..16384).into_par_iter().map(|_| {
             let mut rng = rand::thread_rng();
             let x = (rng.next_u32() % 16384) / 64 + 1024;
             let y = (rng.next_u32() % 16384) / 64 + 1024;
@@ -168,8 +169,13 @@ impl App for Engine {
             let r = (rng.next_u32() % 255) as u8;
             let g = (rng.next_u32() % 255) as u8;
             let b = (rng.next_u32() % 255) as u8;
-            self.world.set_voxel(stardust_common::voxel::Voxel::new([r,g,b], 255, 0, false, 255), uvec3(x as u32,y as u32,z as u32));
-        }
+            let v = stardust_common::voxel::Voxel::new([r,g,b], 255, 0, false, 255);
+            let p = uvec3(x as u32,y as u32,z as u32);
+            (v, p)
+        }).collect();
+        voxels.into_iter().for_each(|(v, p)| {
+            self.internals.world.set_voxel(v, p);
+        });
 
         self.internals.current_scene.update(self.internals.delta_s);
     }
