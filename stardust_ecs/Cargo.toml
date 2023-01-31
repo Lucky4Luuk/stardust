@@ -10,3 +10,4 @@ specs = { version = "0.18", features = ["derive"] }
 
 stardust_common = { path = "../stardust_common" }
 stardust_world = { path = "../stardust_world" }
+stardust_sdvx = { path = "../stardust_sdvx" }

@@ -54,7 +54,7 @@ impl super::Widget for Console {
         String::from("Console")
     }
 
-    fn draw(&mut self, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
+    fn draw(&mut self, ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
         // Pull all pending writes from the engine
         while let Some(s) = engine.console_pending_writes.pop_front() {
             self.buf.push(s);

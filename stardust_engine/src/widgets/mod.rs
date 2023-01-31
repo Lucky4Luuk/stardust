@@ -19,10 +19,18 @@ pub use perf_debug::*;
 mod inspector;
 pub use inspector::*;
 
+mod resource_loader;
+pub use resource_loader::*;
+
+mod resource_inspector;
+pub use resource_inspector::*;
+
 pub trait Widget {
     fn title(&self) -> String;
     fn resizable(&self) -> bool { true }
-    fn draw(&mut self, ui: &mut egui::Ui, engine: &mut crate::EngineInternals);
+    fn closable(&self) -> bool { true }
+    fn update_open_status(&self, _open: &mut bool) {}
+    fn draw(&mut self, ctx: &mut WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals);
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -43,6 +51,22 @@ struct DockedWidget {
 struct FloatingWidget {
     widget: Box<dyn Widget>,
     open: bool,
+}
+
+pub struct WidgetContext {
+    requested_widgets: Vec<(Box<dyn Widget>, DockLoc)>,
+}
+
+impl WidgetContext {
+    fn new() -> Self {
+        Self {
+            requested_widgets: Vec::new(),
+        }
+    }
+
+    pub fn add_widget(&mut self, widget: Box<dyn Widget>, loc: DockLoc) {
+        self.requested_widgets.push((widget, loc));
+    }
 }
 
 pub struct WidgetManager {
@@ -110,17 +134,30 @@ impl WidgetManager {
     }
 
     pub fn draw_floating(&mut self, ctx: &egui::Context, engine: &mut crate::EngineInternals) {
+        let mut wctx = WidgetContext::new();
+
         for floating_widget in &mut self.floating_widgets {
             let title = floating_widget.widget.title();
-            egui::Window::new(&title).open(&mut floating_widget.open).resizable(floating_widget.widget.resizable()).show(ctx, |ui| {
-                floating_widget.widget.draw(ui, engine);
+            let mut builder = egui::Window::new(&title);
+            floating_widget.widget.update_open_status(&mut floating_widget.open);
+            if floating_widget.widget.closable() || floating_widget.open == false {
+                builder = builder.open(&mut floating_widget.open);
+            }
+            builder.resizable(floating_widget.widget.resizable()).show(ctx, |ui| {
+                floating_widget.widget.draw(&mut wctx, ui, engine);
             });
         }
 
         self.floating_widgets.retain(|fw| fw.open);
+
+        for (widget, loc) in wctx.requested_widgets {
+            self.add_widget(widget, loc);
+        }
     }
 
     pub fn draw_docked(&mut self, ctx: &egui::Context, engine: &mut crate::EngineInternals) {
+        let mut wctx = WidgetContext::new();
+
         // Menubar
         // TODO: Close windows with duplicate IDs
         egui::TopBottomPanel::top("menubar").resizable(false).show(ctx, |ui| {
@@ -149,7 +186,7 @@ impl WidgetManager {
                             ui.vertical(|ui| {
                                 ui.heading(docked_widget.widget.title());
                                 ui.separator();
-                                docked_widget.widget.draw(ui, engine);
+                                docked_widget.widget.draw(&mut wctx, ui, engine);
                                 ui.separator();
                             });
                             ui.end_row();
@@ -167,7 +204,7 @@ impl WidgetManager {
                             ui.vertical(|ui| {
                                 ui.heading(docked_widget.widget.title());
                                 ui.separator();
-                                docked_widget.widget.draw(ui, engine);
+                                docked_widget.widget.draw(&mut wctx, ui, engine);
                                 ui.separator();
                             });
                             ui.end_row();
@@ -186,9 +223,7 @@ impl WidgetManager {
                 });
                 ui.separator();
                 if let Some(widget) = self.bottom_docked_widgets.get_mut(self.active_bottom_docked_widget) {
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        widget.widget.draw(ui, engine);
-                    });
+                    widget.widget.draw(&mut wctx, ui, engine);
                 } else {
                     self.active_bottom_docked_widget = 0;
                 }
@@ -199,11 +234,15 @@ impl WidgetManager {
             egui::TopBottomPanel::top("docked_top").resizable(false).show(ctx, |ui| {
                 for docked_widget in &mut self.top_docked_widgets {
                     ui.horizontal_centered(|ui| {
-                        docked_widget.widget.draw(ui, engine);
+                        docked_widget.widget.draw(&mut wctx, ui, engine);
                     });
                     ui.separator();
                 }
             });
+        }
+
+        for (widget, loc) in wctx.requested_widgets {
+            self.add_widget(widget, loc);
         }
     }
 }

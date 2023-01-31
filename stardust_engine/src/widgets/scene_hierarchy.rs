@@ -17,7 +17,7 @@ impl super::Widget for SceneHierachy {
         String::from("Scene hierarchy")
     }
 
-    fn draw(&mut self, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
+    fn draw(&mut self, ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
         ui.columns(2, |columns| {
             columns[0].label("Name");
             columns[1].menu_button("+", |ui| {

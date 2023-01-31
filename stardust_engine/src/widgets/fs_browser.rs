@@ -28,9 +28,9 @@ impl FsBrowser {
         self.folders = Vec::new();
         self.files = Vec::new();
         let path = self.active_folder.as_ref().map(|s| s.display().to_string()).unwrap_or(String::from("."));
-        if let Ok(items) = engine.vfs.read_dir(&path) {
+        if let Ok(items) = engine.resources.vfs.read_dir(&path) {
             for item in items {
-                if let Ok(metadata) = engine.vfs.metadata(&format!("{}/{}", path, item)) {
+                if let Ok(metadata) = engine.resources.vfs.metadata(&format!("{}/{}", path, item)) {
                     match metadata.file_type {
                         VfsFileType::Directory => self.folders.push(item),
                         _ => self.files.push(item),
@@ -61,7 +61,7 @@ impl super::Widget for FsBrowser {
         false
     }
 
-    fn draw(&mut self, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
+    fn draw(&mut self, ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
         if self.request_refresh { self.refresh(engine); }
 
         if self.active_folder.is_some() {
@@ -103,9 +103,21 @@ impl super::Widget for FsBrowser {
                         ui.vertical_centered(|ui| {
                             let extension = f.rsplit(".").next().unwrap_or("");
                             let tex_id = engine.resources.filesystem.file_icon_from_extension(extension).texture_id(ui.ctx());
-                            if ui.add(egui::ImageButton::new(tex_id, (button_width, button_width))).clicked() {
-                                // next_folder = Some(f.clone());
+                            let resp = ui.add(egui::ImageButton::new(tex_id, (button_width, button_width)));
+                            if resp.clicked() {
                                 debug!("[BUTTON] file clicked: {}", f);
+                                let p = self.active_folder.as_ref().map(|p| p.display().to_string()).unwrap_or(".".to_string());
+                                let mut fp = format!("{}/{}", p, f);
+                                if fp.starts_with("./") {
+                                    fp = fp[2..].to_string();
+                                }
+                                if fp.starts_with("/") {
+                                    fp = fp[1..].to_string();
+                                }
+                                debug!("{:?}", fp);
+                                // engine.select_resource(engine.resources.fetch_resource(&fp));
+                                let resource = engine.resources.fetch_resource(&fp);
+                                ctx.add_widget(Box::new(super::ResourceInspector::new(resource, f.clone())), super::DockLoc::Floating);
                             }
                             ui.label(f);
                         });
@@ -124,5 +136,16 @@ impl super::Widget for FsBrowser {
         if let Some(f) = next_folder {
             self.browse_local(f);
         }
+
+        // Draw footer
+        ui.separator();
+        ui.horizontal(|ui| {
+            if ui.button("Load new assets").clicked() && engine.resources.requested_resources.len() == 0 {
+                ctx.add_widget(Box::new(super::ResourceLoader::new(engine, false)), super::DockLoc::Floating);
+            }
+            if ui.button("Reload all assets").clicked() && engine.resources.requested_resources.len() == 0 {
+                ctx.add_widget(Box::new(super::ResourceLoader::new(engine, true)), super::DockLoc::Floating);
+            }
+        });
     }
 }

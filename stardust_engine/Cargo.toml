@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
+anyhow = "1.0"
+thiserror = "1.0"
 foxtail = { path = "../../foxtail/foxtail" }
 egui = "0.20"
 egui_extras = { version = "0.20", features = ["image"] }
@@ -20,3 +22,5 @@ image = { version = "0.24", features = ["jpeg","png"] }
 stardust_common = { path = "../stardust_common" }
 stardust_world = { path = "../stardust_world" }
 stardust_ecs = { path = "../stardust_ecs" }
+stardust_sdvx = { path = "../stardust_sdvx" }
+stardust_magica_voxel = { path = "../stardust_magica_voxel" }

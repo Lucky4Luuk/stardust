@@ -15,7 +15,7 @@ impl VoxelWithPos {
 /// [24]    - metallic
 /// [25-31] - opacity
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Voxel(pub u32);
 
 impl Voxel {

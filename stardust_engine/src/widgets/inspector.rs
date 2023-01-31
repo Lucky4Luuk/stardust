@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-
 use stardust_ecs::prelude::*;
 
 pub struct Inspector {
@@ -29,7 +28,7 @@ impl super::Widget for Inspector {
         String::from("Inspector")
     }
 
-    fn draw(&mut self, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
+    fn draw(&mut self, ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
         if engine.selected_entity != self.current_entity {
             self.current_entity = engine.selected_entity;
             self.refresh(engine);
@@ -39,18 +38,6 @@ impl super::Widget for Inspector {
             if let Some(comp_info) = &mut self.current_components {
                 let mut dirty = false;
 
-                // ui.label(egui::RichText::new("Name").strong());
-                // dirty = dirty || draw_component_name(ui, engine, &mut comp_info.name_component);
-                // if let Some(ctransform) = &mut comp_info.transform_component {
-                //     ui.separator();
-                //     ui.label(egui::RichText::new("Transform").strong());
-                //     dirty = dirty || draw_component_transform(ui, engine, ctransform);
-                // }
-                // if let Some(cmodel) = &mut comp_info.model_component {
-                //     ui.separator();
-                //     ui.label(egui::RichText::new("Model").strong());
-                //     dirty = dirty || draw_component_model(ui, engine, cmodel);
-                // }
                 dirty = dirty || draw_generic_component(ui, engine, "Name", comp_info.name_component.fields());
                 if let Some(ctransform) = &mut comp_info.transform_component {
                     ui.separator();
@@ -94,7 +81,13 @@ fn draw_generic_component<S: Into<String>>(ui: &mut egui::Ui, engine: &mut crate
             ui.label(k);
             let responses = match v {
                 Value::String(s) => vec![ui.text_edit_singleline(s)],
-                Value::Float(f) => vec![ui.add(egui::DragValue::new(f))],
+                Value::PrimF32(f) => vec![ui.add(egui::DragValue::new(f))],
+                
+                Value::PrimU8(f) => vec![ui.add(egui::DragValue::new(f))],
+                Value::PrimU16(f) => vec![ui.add(egui::DragValue::new(f))],
+                Value::PrimU32(f) => vec![ui.add(egui::DragValue::new(f))],
+                Value::PrimU64(f) => vec![ui.add(egui::DragValue::new(f))],
+
                 Value::Vec2(x, y) => {
                     let mut responses = Vec::new();
                     ui.columns(2, |columns| {

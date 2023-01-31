@@ -2,12 +2,14 @@ use stardust_common::{
     voxel::Voxel as SDVoxel,
     math::*,
 };
+use stardust_sdvx::RawModel;
 
 use dot_vox::*;
 
 use anyhow::Result;
+use thiserror::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 struct MagicaVoxelError(String);
 
 impl std::fmt::Display for MagicaVoxelError {
@@ -15,23 +17,22 @@ impl std::fmt::Display for MagicaVoxelError {
         write!(f, "{}", self.0)
     }
 }
-impl std::error::Error for MagicaVoxelError {}
 
 pub struct MagicaVoxelModel {
-    voxels: Vec<(IVec3, Voxel)>,
+    voxels: Vec<(IVec3, u8)>,
     min: IVec3,
     max: IVec3,
 }
 
 impl MagicaVoxelModel {
-    pub fn from_path(path: &str) -> Result<Self> {
-        let model = dot_vox::load(path).map_err(|e| MagicaVoxelError(e.to_string()))?;
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let model = dot_vox::load_bytes(bytes).map_err(|e| MagicaVoxelError(e.to_string()))?;
 
         let mut voxels = Vec::new();
         let mut min = ivec3(0,0,0);
         let mut max = ivec3(0,0,0);
 
-        for node in &model.scenes {
+        fn handle_node(node: &SceneNode, model: &DotVoxData, min: &mut IVec3, max: &mut IVec3, voxels: &mut Vec<(IVec3, u8)>) {
             match node {
                 SceneNode::Transform { attributes: _, frames, child, layer_id: _ } => {
                     let child_node = &model.scenes[*child as usize];
@@ -44,17 +45,27 @@ impl MagicaVoxelModel {
                                 let vmodel = &model.models[smodel.model_id as usize];
                                 for voxel in &vmodel.voxels {
                                     let vpos = ivec3(voxel.x.into(),voxel.y.into(),voxel.z.into());
-                                    min = min.min(vpos);
-                                    max = max.max(vpos);
-                                    voxels.push((pos + vpos, *voxel));
+                                    *min = min.min(vpos);
+                                    *max = max.max(vpos);
+                                    voxels.push((pos + vpos, voxel.i));
                                 }
                             }
                         },
-                        _ => panic!("Wtf?"),
+                        SceneNode::Group { attributes: _, children } => {
+                            for child in children {
+                                let child_node = &model.scenes[*child as usize];
+                                handle_node(child_node, model, min, max, voxels);
+                            }
+                        }
+                        _ => panic!("Wtf? {:?}", child_node),
                     }
                 },
                 _ => {}, // Don't handle this
             }
+        }
+
+        for node in &model.scenes {
+            handle_node(node, &model, &mut min, &mut max, &mut voxels);
         }
 
         Ok(Self {
@@ -70,5 +81,19 @@ impl MagicaVoxelModel {
 
     pub fn get_voxel(&self, pos: IVec3) -> SDVoxel {
         todo!();
+    }
+
+    pub fn to_sdvx(self) -> RawModel {
+        let brick_size = 8;
+        let mut voxels = Vec::new();
+        let (min, max) = self.voxel_bounds();
+        for (vpos, voxel) in self.voxels {
+            let wpos_raw = (vpos + min).to_array();
+            let wpos = uvec3(wpos_raw[0] as u32, wpos_raw[1] as u32, wpos_raw[2] as u32);
+            let rgb = [255, 255, 255];
+            let sdvoxel = SDVoxel::new(rgb, 255, 0, false, 255);
+            voxels.push((wpos, sdvoxel));
+        }
+        RawModel::with_voxels(voxels.into_iter(), brick_size)
     }
 }

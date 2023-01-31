@@ -4,6 +4,7 @@ use specs::prelude::*;
 use std::collections::BTreeMap;
 
 use stardust_common::math::*;
+use stardust_sdvx::Model;
 
 mod transform;
 pub use transform::*;
@@ -14,11 +15,21 @@ pub use model::*;
 pub mod prelude;
 
 pub enum Value<'a> {
+    // Primitives
     String(&'a mut String),
-    Float(&'a mut f32),
+    PrimF32(&'a mut f32),
+    
+    PrimU8(&'a mut u32),
+    PrimU16(&'a mut u32),
+    PrimU32(&'a mut u32),
+    PrimU64(&'a mut u32),
+
     Vec2(&'a mut f32, &'a mut f32),
     Vec3(&'a mut f32, &'a mut f32, &'a mut f32),
     Vec4(&'a mut f32, &'a mut f32, &'a mut f32, &'a mut f32),
+
+    // Complex values
+    ModelReference(&'a mut &'a Model),
 }
 
 #[derive(Debug, Component, Clone)]
@@ -154,6 +165,14 @@ impl Scene {
                 *cur_ctransform = ctransform;
             } else {
                 transform_storage.insert(entity, ctransform).expect("Failed to add component!");
+            }
+        }
+
+        if let Some(cmodel) = comp_info.model_component {
+            if let Some(cur_cmodel) = model_storage.get_mut(entity) {
+                *cur_cmodel = cmodel;
+            } else {
+                model_storage.insert(entity, cmodel).expect("Failed to add component!");
             }
         }
     }

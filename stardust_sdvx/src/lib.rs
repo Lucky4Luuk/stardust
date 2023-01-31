@@ -1,16 +1,59 @@
 use std::collections::HashMap;
+use std::rc::Rc;
+
 use thiserror::Error;
 use stardust_common::voxel::Voxel;
 use stardust_common::math::*;
 
+#[derive(Debug)]
+pub struct Brick {
+    pub position: UVec3,
+    pub voxels: Vec<Rc<Voxel>>,
+}
+
+// TODO: Figure out a way to get rid of Rc? Might impact performance more than just managing your own indices
+/// A model as represented in memory. Currently cannot be turned back into a RawModel.
+#[derive(Debug)]
+pub struct Model {
+    header: Header,
+
+    voxels: Vec<Rc<Voxel>>,
+    bricks: Vec<Brick>,
+}
+
+impl Model {
+    pub fn from_raw(raw_model: RawModel) -> Self {
+        let voxels: Vec<Rc<Voxel>> = raw_model.voxels.iter().map(|voxel| Rc::new(*voxel)).collect();
+        let mut bricks = Vec::new();
+        for raw_brick in &raw_model.bricks {
+            let mut brick_voxels = Vec::new();
+            for index in &raw_brick.indices {
+                brick_voxels.push(Rc::clone(&voxels[*index as usize]));
+            }
+            bricks.push(Brick {
+                position: uvec3(raw_brick.position[0] as u32, raw_brick.position[1] as u32, raw_brick.position[2] as u32),
+                voxels: brick_voxels,
+            });
+        }
+
+        Self {
+            header: raw_model.header,
+
+            voxels: voxels,
+            bricks: bricks,
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum ParseError {
-    #[error("unknown parsing error")]
+    #[error("Unknown parsing error")]
     Unknown,
-    #[error("unexpected end of file")]
+    #[error("Unexpected end of file")]
     UnexpectedEOF,
 }
 
+#[derive(Debug)]
 struct Header {
     version_major: u16,
     version_minor: u16,
@@ -48,12 +91,12 @@ impl Header {
     }
 }
 
-struct Brick {
+struct RawBrick {
     position: [u16; 3],
     indices: Vec<u32>,
 }
 
-impl Brick {
+impl RawBrick {
     fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
@@ -74,14 +117,14 @@ impl Brick {
     }
 }
 
-pub struct Model {
+pub struct RawModel {
     header: Header,
-    bricks: Vec<Brick>,
+    bricks: Vec<RawBrick>,
 
     pub voxels: Vec<Voxel>,
 }
 
-impl Model {
+impl RawModel {
     pub fn empty() -> Self {
         Self {
             header: Header {
@@ -98,9 +141,9 @@ impl Model {
     /// Voxels with the same position are not handled properly yet.
     /// Currently, if 2 voxels have the same position, they simply overwrite eachother in the
     /// order of the list
-    pub fn with_voxels(voxels: impl Iterator<Item =(UVec3, Voxel)>, brick_size: u16) -> Self {
+    pub fn with_voxels(voxels: impl Iterator<Item = (UVec3, Voxel)>, brick_size: u16) -> Self {
         let mut voxels_processed = vec![Voxel::empty()];
-        let mut brick_map: HashMap<UVec3, Brick> = HashMap::new();
+        let mut brick_map: HashMap<UVec3, RawBrick> = HashMap::new();
 
         let mut voxels_mapped = Vec::new();
         for (wpos, voxel) in voxels {
@@ -131,7 +174,7 @@ impl Model {
             } else {
                 let mut indices = vec![0; brick_size as usize * brick_size as usize * brick_size as usize];
                 indices[local_idx] = voxel_idx;
-                let brick = Brick {
+                let brick = RawBrick {
                     position: [brick_pos.x as u16, brick_pos.y as u16, brick_pos.z as u16],
                     indices: indices,
                 };
@@ -176,7 +219,8 @@ impl Model {
 
         let remaining_bytes: Vec<u8> = bytes.map(|b| *b).collect();
 
-        let brick_byte_size = 8 + (header.brick_size as usize * header.brick_size as usize * header.brick_size as usize * 4);
+        let brick_indices_size = header.brick_size as usize * header.brick_size as usize * header.brick_size as usize * 4;
+        let brick_byte_size = 8 + brick_indices_size;
         let mut bricks = Vec::new();
         for brick_bytes in remaining_bytes.chunks_exact(brick_byte_size) {
             let mut bb_iter = brick_bytes.iter();
@@ -196,7 +240,7 @@ impl Model {
             let z = u16::from_le_bytes([za,zb]);
 
             let mut indices = Vec::new();
-            for _ in 0..(brick_byte_size / 4) {
+            for _ in 0..(brick_indices_size / 4) {
                 let a = *bb_iter.next().ok_or(ParseError::UnexpectedEOF)?;
                 let b = *bb_iter.next().ok_or(ParseError::UnexpectedEOF)?;
                 let c = *bb_iter.next().ok_or(ParseError::UnexpectedEOF)?;
@@ -204,7 +248,7 @@ impl Model {
                 let raw = u32::from_le_bytes([a,b,c,d]);
                 indices.push(raw);
             }
-            bricks.push(Brick {
+            bricks.push(RawBrick {
                 position: [x,y,z],
                 indices
             });

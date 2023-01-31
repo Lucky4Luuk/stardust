@@ -22,7 +22,7 @@ impl super::Widget for Flamegraph {
         String::from("Flamegraph")
     }
 
-    fn draw(&mut self, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
+    fn draw(&mut self, ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
         puffin_egui::profiler_ui(ui);
     }
 }

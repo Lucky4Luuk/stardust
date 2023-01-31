@@ -9,6 +9,8 @@ edition = "2021"
 log = "0.4"
 dot_vox = "5.1.0"
 puffin = "0.13.3"
-anyhow = "1.0.66"
+thiserror = "1.0"
+anyhow = "1.0"
 
 stardust_common = { path = "../stardust_common" }
+stardust_sdvx = { path = "../stardust_sdvx" }

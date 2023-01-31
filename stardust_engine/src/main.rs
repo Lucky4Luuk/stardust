@@ -1,5 +1,5 @@
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate log;
+#[macro_use] extern crate anyhow;
 
 use std::time::Instant;
 use std::collections::VecDeque;
@@ -11,8 +11,6 @@ use foxtail::prelude::*;
 use stardust_common::camera::Camera;
 use stardust_common::math::*;
 use stardust_ecs::prelude::*;
-
-use vfs::*;
 
 pub mod renderer;
 pub mod widgets;
@@ -34,7 +32,6 @@ pub struct EngineInternals {
     cam_rot_y: f32,
     last_frame: Instant,
 
-    vfs: AltrootFS,
     pub resources: ResourceManager,
     pub current_scene: Scene,
     pub current_scene_path: Option<PathBuf>,
@@ -79,7 +76,6 @@ impl Engine {
                 cam_rot_y: 0.0,
                 last_frame: Instant::now(),
 
-                vfs: AltrootFS::new(VfsPath::new(PhysicalFS::new("."))),
                 resources: ResourceManager::new(),
                 current_scene: Scene::new(),
                 current_scene_path: None,
@@ -152,6 +148,12 @@ impl App for Engine {
         let elapsed = now - self.last_frame;
         self.delta_s = elapsed.as_secs_f32();
         self.last_frame = now;
+
+        // Refresh ResourceManager if needed
+        if self.internals.resources.request_refresh {
+            self.widgets.add_widget(Box::new(ResourceLoader::new(&mut self.internals, false)), DockLoc::Floating);
+            self.internals.resources.request_refresh = false;
+        }
 
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
