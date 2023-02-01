@@ -173,6 +173,28 @@ impl App for Engine {
             let p = uvec3(x as u32,y as u32,z as u32);
             (v, p)
         }).collect();
+        // let r = ((self.internals.frame_counter as f32) / 8f32).sin() * 8f32 + 24f32;
+        // let r2 = (r * r) as i16;
+        // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..128).into_par_iter().map(|x| {
+        //     let mut voxels = Vec::new();
+        //     for y in 0..128 {
+        //         for z in 0..128 {
+        //             let cx = (x % 16) as u8;
+        //             let cy = (y % 16) as u8;
+        //             let c = [cx * 16, cy * 16, 255];
+        //             let ox = x as i16 - 64;
+        //             let oy = y as i16 - 64;
+        //             let oz = z as i16 - 64;
+        //             let o = if ox * ox + oy * oy + oz * oz > r2 {
+        //                 0
+        //             } else {
+        //                 255
+        //             };
+        //             voxels.push((stardust_common::voxel::Voxel::new(c, 255, 0, false, o), uvec3(x+1024,y+1024,z+1024)));
+        //         }
+        //     }
+        //     voxels
+        // }).flatten().collect();
         voxels.into_iter().for_each(|(v, p)| {
             self.internals.world.set_voxel(v, p);
         });

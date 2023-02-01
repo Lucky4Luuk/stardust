@@ -40,4 +40,9 @@ impl Brick {
         let i = pos.x as usize + pos.y as usize * 16 + pos.z as usize * 16 * 16;
         self.voxels[i] = voxel;
     }
+
+    pub fn get_voxel(&self, pos: UVec3) -> &Voxel {
+        let i = pos.x as usize + pos.y as usize * 16 + pos.z as usize * 16 * 16;
+        &self.voxels[i]
+    }
 }

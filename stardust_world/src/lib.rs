@@ -103,8 +103,52 @@ impl World {
         obj
     }
 
+    pub fn get_voxel(&self, world_pos: UVec3) -> Option<&Voxel> {
+        puffin::profile_function!();
+        let layer0_pos = world_pos / 16 / 16;
+
+        let layer0_pos_1d = layer0_pos.x as usize
+            + layer0_pos.y as usize * BRICK_MAP_SIZE
+            + layer0_pos.z as usize * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
+
+        let layer0_pool_idx = self.layer0_map_cpu[layer0_pos_1d] as usize;
+        if layer0_pool_idx == 0 {
+            None
+        } else {
+            self.get_voxel_in_layer0(world_pos, layer0_pool_idx - 1)
+        }
+    }
+
+    /// Assumes the Layer0Node at layer0_idx to already be allocated.
+    fn get_voxel_in_layer0(&self, world_pos: UVec3, layer0_idx: usize) -> Option<&Voxel> {
+        puffin::profile_function!();
+        let brick_pos = (world_pos / 16) % 16;
+
+        let brick_pos_1d = brick_pos.x as usize
+            + brick_pos.y as usize * 16
+            + brick_pos.z as usize * 16 * 16;
+
+        let layer0 = &self.layer0_pool_cpu[layer0_idx];
+        let brick_pool_idx = layer0.brick_indices[brick_pos_1d] as usize;
+        if brick_pool_idx == 0 {
+            None
+        } else {
+            // Brick already allocated
+            Some(self.get_voxel_in_brick(world_pos, brick_pool_idx - 1))
+        }
+    }
+
+    /// Assumes the Brick at brick_idx to already be allocated
+    fn get_voxel_in_brick(&self, world_pos: UVec3, brick_idx: usize) -> &Voxel {
+        puffin::profile_function!();
+        let local_pos = world_pos % 16;
+        let brick = &self.brick_pool_cpu[brick_idx];
+        brick.get_voxel(local_pos)
+    }
+
     pub fn set_voxel(&mut self, voxel: Voxel, world_pos: UVec3) {
         puffin::profile_function!();
+
         let layer0_pos = world_pos / 16 / 16;
 
         let layer0_pos_1d = layer0_pos.x as usize
@@ -185,6 +229,9 @@ impl World {
     fn set_voxel_in_brick(&mut self, voxel: Voxel, world_pos: UVec3, brick_idx: usize) {
         puffin::profile_function!();
         let local_pos = world_pos % 16;
+        if self.brick_pool_cpu[brick_idx].get_voxel(local_pos).0 == voxel.0 {
+            return;
+        }
         let brick = &mut self.brick_pool_cpu[brick_idx];
         brick.set_voxel(voxel, local_pos);
         self.brick_pool_flag_map[brick_idx].set_dirty(true);
