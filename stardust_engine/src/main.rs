@@ -99,7 +99,7 @@ impl Engine {
             for y in 0..=255 {
                 for z in 0..=255 {
                     let v = stardust_common::voxel::Voxel::new([x,y,z], 255, 0, false, 255);
-                    let p = uvec3(x as u32 + 1024,y as u32 + 1024,z as u32 + 1024);
+                    let p = uvec3(x as u32 + 1024 + 256,y as u32 + 1024,z as u32 + 1024);
                     voxels.push((v, p));
                 }
             }

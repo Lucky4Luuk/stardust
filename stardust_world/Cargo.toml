@@ -9,4 +9,3 @@ puffin = "0.13.3"
 foxtail = { path = "../../foxtail/foxtail" }
 stardust_common = { path = "../stardust_common" }
 itertools = "0.10"
-rayon = "1.6.1"

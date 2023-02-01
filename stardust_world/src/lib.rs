@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate log;
 
-use rayon::prelude::*;
 use foxtail::prelude::*;
 
 use stardust_common::math::*;
@@ -72,6 +71,21 @@ impl World {
             layer0_used: 0,
         };
 
+        // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..=255).into_iter().map(|x| {
+        //     let mut voxels = Vec::new();
+        //     for y in 0..=255 {
+        //         for z in 0..=255 {
+        //             let v = stardust_common::voxel::Voxel::new([x,y,z], 255, 0, false, 0);
+        //             let p = uvec3(x as u32 + 1024,y as u32 + 1024,z as u32 + 1024);
+        //             voxels.push((v, p));
+        //         }
+        //     }
+        //     voxels
+        // }).flatten().collect();
+        // voxels.into_iter().for_each(|(v, p)| {
+        //     obj.set_voxel(v, p);
+        // });
+        obj.process();
         for ix in 0..128 {
             for iy in 0..128 {
                 for iz in 0..128 {
@@ -101,49 +115,6 @@ impl World {
 
         obj.process();
         obj
-    }
-
-    pub fn get_voxel(&self, world_pos: UVec3) -> Option<&Voxel> {
-        puffin::profile_function!();
-        let layer0_pos = world_pos / 16 / 16;
-
-        let layer0_pos_1d = layer0_pos.x as usize
-            + layer0_pos.y as usize * BRICK_MAP_SIZE
-            + layer0_pos.z as usize * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
-
-        let layer0_pool_idx = self.layer0_map_cpu[layer0_pos_1d] as usize;
-        if layer0_pool_idx == 0 {
-            None
-        } else {
-            self.get_voxel_in_layer0(world_pos, layer0_pool_idx - 1)
-        }
-    }
-
-    /// Assumes the Layer0Node at layer0_idx to already be allocated.
-    fn get_voxel_in_layer0(&self, world_pos: UVec3, layer0_idx: usize) -> Option<&Voxel> {
-        puffin::profile_function!();
-        let brick_pos = (world_pos / 16) % 16;
-
-        let brick_pos_1d = brick_pos.x as usize
-            + brick_pos.y as usize * 16
-            + brick_pos.z as usize * 16 * 16;
-
-        let layer0 = &self.layer0_pool_cpu[layer0_idx];
-        let brick_pool_idx = layer0.brick_indices[brick_pos_1d] as usize;
-        if brick_pool_idx == 0 {
-            None
-        } else {
-            // Brick already allocated
-            Some(self.get_voxel_in_brick(world_pos, brick_pool_idx - 1))
-        }
-    }
-
-    /// Assumes the Brick at brick_idx to already be allocated
-    fn get_voxel_in_brick(&self, world_pos: UVec3, brick_idx: usize) -> &Voxel {
-        puffin::profile_function!();
-        let local_pos = world_pos % 16;
-        let brick = &self.brick_pool_cpu[brick_idx];
-        brick.get_voxel(local_pos)
     }
 
     pub fn set_voxel(&mut self, voxel: Voxel, world_pos: UVec3) {
@@ -251,50 +222,29 @@ impl World {
 
     pub fn process(&mut self) {
         puffin::profile_function!();
-        let to_write_layer0: Vec<usize> = self.layer0_pool_flag_map
-            .par_iter_mut()
+        self.layer0_pool_flag_map
+            .iter_mut()
             .enumerate()
-            .map(|(i, flag)| {
+            .for_each(|(i, flag)| {
                 if flag.dirty() {
-                    flag.set_dirty(false);
-                    i + 1
-                } else {
-                    0
+                    self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
                 }
-            }).filter(|i| *i > 0).collect();
+                flag.set_dirty(false);
+            });
 
-        let to_write_brick: Vec<usize> = self.brick_pool_flag_map
-            .par_iter_mut()
+        self.brick_pool_flag_map
+            .iter_mut()
             .enumerate()
-            .map(|(i, flag)| {
-                let mut ret = 0;
+            .for_each(|(i, flag)| {
                 if flag.dirty() {
                     if !self.brick_pool_cpu[i].is_empty() {
-                        ret = i + 1;
-                    } else if flag.in_use() {
-                        // Brick is empty now, free it up
+                        self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
+                    } else {
                         flag.set_in_use(false);
                     }
                     flag.set_dirty(false);
                 }
-                ret
-            }).filter(|i| *i > 0).collect();
-
-        to_write_layer0.into_iter().for_each(|i| {
-            let i = i - 1;
-            self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
-        });
-
-        // Performance of these 2 are pretty much identical
-        to_write_brick.into_iter().for_each(|i| {
-            let i = i - 1;
-            self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
-        });
-        // let to_write_brick_data = to_write_brick.into_iter().map(|i| {
-        //     let i = i - 1;
-        //     (i, &self.brick_pool_cpu[i])
-        // });
-        // self.brick_pool.write_slice(to_write_brick_data);
+            });
 
         // TODO: This is always uploaded, but that's very much overkill and bad for performance scaling lol
         self.layer0_map.write(0, &self.layer0_map_cpu[..]);
