@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate log;
 
+use std::sync::{Arc, Mutex};
 use foxtail::prelude::*;
 
 use stardust_common::math::*;
@@ -17,58 +18,42 @@ use brick::*;
 pub const BRICK_POOL_SIZE: usize = 32768;
 pub const LAYER0_POOL_SIZE: usize = 8192;
 const BRICK_MAP_SIZE: usize = 64;
+const VOXEL_QUEUE_SIZE: usize = 4096;
 
 pub struct World {
     brick_pool: FixedSizeBuffer<Brick>,
     layer0_pool: FixedSizeBuffer<Layer0>,
     layer0_map: FixedSizeBuffer<u32>,
 
-    brick_pool_cpu: Box<[Brick]>,
-    brick_pool_flag_map: Box<[UsageFlags]>,
+    voxel_queue: Arc<Mutex<Vec<(Voxel, UVec3)>>>,
+    voxel_queue_gpu: FixedSizeBuffer<[u32; 4]>,
 
-    layer0_pool_cpu: Box<[Layer0]>,
-    layer0_pool_flag_map: Box<[UsageFlags]>,
-
-    layer0_map_cpu: Box<[u32]>,
-
-    pub bricks_used: usize,
-    pub layer0_used: usize,
+    cs_process_voxels: ComputeShader,
 }
 
 impl World {
     pub fn new(ctx: &Context) -> Self {
         debug!("Creating new world...");
         let brick_pool = FixedSizeBuffer::new(ctx, BRICK_POOL_SIZE);
-        debug!("Brick pool created!");
+        debug!("GPU Brick pool created!");
         let layer0_pool = FixedSizeBuffer::new(ctx, LAYER0_POOL_SIZE);
-        debug!("Layer0 pool created!");
+        debug!("GPU Layer0 pool created!");
         let layer0_map = FixedSizeBuffer::new(ctx, BRICK_MAP_SIZE * BRICK_MAP_SIZE * BRICK_MAP_SIZE);
-        debug!("Brick map created!");
+        debug!("GPU Brick map created!");
+        let voxel_queue_gpu = FixedSizeBuffer::new(ctx, VOXEL_QUEUE_SIZE);
+        debug!("GPU Voxel queue created!");
 
-        let brick_pool_cpu: Box<[Brick]> = vec![Brick::empty(); BRICK_POOL_SIZE].into_boxed_slice();
-        let layer0_pool_cpu: Box<[Layer0]> = vec![Layer0::empty(); LAYER0_POOL_SIZE].into_boxed_slice();
-        let layer0_map_cpu: Box<[u32]> = vec![0u32; BRICK_MAP_SIZE * BRICK_MAP_SIZE * BRICK_MAP_SIZE].into_boxed_slice();
-
-        let mut flag = UsageFlags::empty();
-        flag.set_dirty(true);
-        let brick_pool_flag_map = vec![flag; BRICK_POOL_SIZE].into_boxed_slice();
-        let layer0_pool_flag_map = vec![flag; LAYER0_POOL_SIZE].into_boxed_slice();
+        let cs_process_voxels = ComputeShader::new(ctx, include_str!("../shaders/cs_process_voxel_queue.glsl"));
 
         let mut obj = Self {
-            brick_pool: brick_pool,
-            layer0_pool: layer0_pool,
-            layer0_map: layer0_map,
+            brick_pool,
+            layer0_pool,
+            layer0_map,
 
-            brick_pool_cpu: brick_pool_cpu,
-            brick_pool_flag_map: brick_pool_flag_map,
+            voxel_queue: Arc::new(Mutex::new(Vec::new())),
+            voxel_queue_gpu,
 
-            layer0_pool_cpu: layer0_pool_cpu,
-            layer0_pool_flag_map: layer0_pool_flag_map,
-
-            layer0_map_cpu: layer0_map_cpu,
-
-            bricks_used: 0,
-            layer0_used: 0,
+            cs_process_voxels,
         };
 
         // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..=255).into_iter().map(|x| {
@@ -117,95 +102,14 @@ impl World {
         obj
     }
 
+    pub fn voxels_queued(&self) -> usize {
+        self.voxel_queue.lock().unwrap().len()
+    }
+
     pub fn set_voxel(&mut self, voxel: Voxel, world_pos: UVec3) {
         puffin::profile_function!();
-
-        let layer0_pos = world_pos / 16 / 16;
-
-        let layer0_pos_1d = layer0_pos.x as usize
-            + layer0_pos.y as usize * BRICK_MAP_SIZE
-            + layer0_pos.z as usize * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
-
-        let layer0_pool_idx = self.layer0_map_cpu[layer0_pos_1d] as usize;
-        if layer0_pool_idx == 0 {
-            // Layer0Node not yet allocated
-            // Step 1: Find free Layer0Node
-            let mut free_layer0_idx = 0;
-            for (i, flag) in self.layer0_pool_flag_map.iter().enumerate() {
-                if !flag.in_use() {
-                    free_layer0_idx = i + 1;
-                    break;
-                }
-            }
-            if free_layer0_idx == 0 {
-                error!("Failed to place voxel in world! No free Layer0Nodes left :(");
-                return;
-                // todo!("Resize layer0 buffer?");
-            }
-
-            // Step 2: Allocate Layer0Node
-            self.layer0_map_cpu[layer0_pos_1d] = free_layer0_idx as u32;
-            self.layer0_pool_flag_map[free_layer0_idx - 1].set_dirty(true);
-            self.layer0_pool_flag_map[free_layer0_idx - 1].set_in_use(true);
-            self.layer0_used += 1;
-
-            self.set_voxel_in_layer0(voxel, world_pos, free_layer0_idx - 1);
-        } else {
-            // Layer0 already allocated
-            self.set_voxel_in_layer0(voxel, world_pos, layer0_pool_idx - 1);
-        }
-    }
-
-    /// Assumes the Layer0Node at layer0_idx to already be allocated.
-    fn set_voxel_in_layer0(&mut self, voxel: Voxel, world_pos: UVec3, layer0_idx: usize) {
-        puffin::profile_function!();
-        let brick_pos = (world_pos / 16) % 16;
-
-        let brick_pos_1d = brick_pos.x as usize
-            + brick_pos.y as usize * 16
-            + brick_pos.z as usize * 16 * 16;
-
-        let layer0 = &mut self.layer0_pool_cpu[layer0_idx];
-        let brick_pool_idx = layer0.brick_indices[brick_pos_1d] as usize;
-        if brick_pool_idx == 0 {
-            // Brick not yet allocated
-            // Step 1: Find free Brick
-            let mut free_brick_idx = 0;
-            for (i, flag) in self.brick_pool_flag_map.iter().enumerate() {
-                if !flag.in_use() {
-                    free_brick_idx = i + 1;
-                    break;
-                }
-            }
-            if free_brick_idx == 0 {
-                error!("Failed to place voxel in world! No free Bricks left :(");
-                return;
-                // todo!("Resize brick buffer?");
-            }
-
-            // Step 2: Allocate Brick
-            layer0.brick_indices[brick_pos_1d] = free_brick_idx as u32;
-            self.brick_pool_flag_map[free_brick_idx - 1].set_dirty(true);
-            self.brick_pool_flag_map[free_brick_idx - 1].set_in_use(true);
-            self.bricks_used += 1;
-
-            self.set_voxel_in_brick(voxel, world_pos, free_brick_idx - 1);
-        } else {
-            // Brick already allocated
-            self.set_voxel_in_brick(voxel, world_pos, brick_pool_idx - 1);
-        }
-    }
-
-    /// Assumes the Brick at brick_idx to already be allocated
-    fn set_voxel_in_brick(&mut self, voxel: Voxel, world_pos: UVec3, brick_idx: usize) {
-        puffin::profile_function!();
-        let local_pos = world_pos % 16;
-        if self.brick_pool_cpu[brick_idx].get_voxel(local_pos).0 == voxel.0 {
-            return;
-        }
-        let brick = &mut self.brick_pool_cpu[brick_idx];
-        brick.set_voxel(voxel, local_pos);
-        self.brick_pool_flag_map[brick_idx].set_dirty(true);
+        let mut lock = self.voxel_queue.lock().unwrap();
+        lock.push((voxel, world_pos));
     }
 
     pub fn bind(&mut self) {
@@ -220,33 +124,40 @@ impl World {
         self.layer0_map.unbind();
     }
 
+    fn write_queue_to_gpu(&mut self, write_slice: Vec<[u32; 4]>) {
+        puffin::profile_function!();
+        self.voxel_queue_gpu.write(0, &write_slice);
+    }
+
     pub fn process(&mut self) {
         puffin::profile_function!();
-        self.layer0_pool_flag_map
-            .iter_mut()
-            .enumerate()
-            .for_each(|(i, flag)| {
-                if flag.dirty() {
-                    self.layer0_pool.write(i, &[self.layer0_pool_cpu[i]]);
-                }
-                flag.set_dirty(false);
-            });
 
-        self.brick_pool_flag_map
-            .iter_mut()
-            .enumerate()
-            .for_each(|(i, flag)| {
-                if flag.dirty() {
-                    if !self.brick_pool_cpu[i].is_empty() {
-                        self.brick_pool.write(i, &[self.brick_pool_cpu[i]]);
-                    } else {
-                        flag.set_in_use(false);
-                    }
-                    flag.set_dirty(false);
-                }
-            });
+        let mut write_total = Vec::new();
+        {
+            let mut lock = self.voxel_queue.lock().unwrap();
 
-        // TODO: This is always uploaded, but that's very much overkill and bad for performance scaling lol
-        self.layer0_map.write(0, &self.layer0_map_cpu[..]);
+            for chunk in lock.chunks(VOXEL_QUEUE_SIZE) {
+                let mut write_slice = Vec::new();
+                for (voxel, wpos) in chunk {
+                    write_slice.push([voxel.0, wpos.x, wpos.y, wpos.z]);
+                }
+                write_total.push(write_slice);
+            }
+
+            lock.clear();
+        }
+
+        for slice in write_total {
+            let size = slice.len();
+            self.write_queue_to_gpu(slice);
+
+            self.bind();
+            self.voxel_queue_gpu.bind(3);
+
+            self.cs_process_voxels.dispatch([size as u32, 1, 1]);
+
+            self.voxel_queue_gpu.unbind();
+            self.unbind();
+        }
     }
 }

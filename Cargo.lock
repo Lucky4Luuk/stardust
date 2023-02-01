@@ -1806,7 +1806,6 @@ dependencies = [
  "itertools",
  "log",
  "puffin 0.13.3",
- "rayon",
  "stardust_common",
 ]
 
