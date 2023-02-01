@@ -30,7 +30,8 @@ pub struct World {
     layer0_pool_counter: AtomicCounter,
 
     cs_process_voxels: ComputeShader,
-    cs_alloc_bricks_layers: ComputeShader,
+    cs_alloc_layers: ComputeShader,
+    cs_alloc_bricks: ComputeShader,
 }
 
 impl World {
@@ -48,7 +49,8 @@ impl World {
         let layer0_pool_counter = AtomicCounter::new(ctx);
 
         let cs_process_voxels = ComputeShader::new(ctx, include_str!("../shaders/cs_process_voxel_queue.glsl"));
-        let cs_alloc_bricks_layers = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_bricks_layers.glsl"));
+        let cs_alloc_layers = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_layers.glsl"));
+        let cs_alloc_bricks = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_bricks.glsl"));
 
         let mut obj = Self {
             brick_pool,
@@ -62,7 +64,8 @@ impl World {
             layer0_pool_counter,
 
             cs_process_voxels,
-            cs_alloc_bricks_layers,
+            cs_alloc_layers,
+            cs_alloc_bricks,
         };
 
         // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..=255).into_iter().map(|x| {
@@ -188,7 +191,9 @@ impl World {
             self.brick_pool_counter.bind(4);
             self.layer0_pool_counter.bind(5);
 
-            self.cs_alloc_bricks_layers.dispatch([size as u32, 1, 1]);
+            self.cs_alloc_layers.dispatch([size as u32, 1, 1]);
+            ctx.fence();
+            self.cs_alloc_bricks.dispatch([size as u32, 1, 1]);
             ctx.fence();
             self.cs_process_voxels.dispatch([size as u32, 1, 1]);
 
