@@ -97,12 +97,15 @@ bool setVoxel(ivec3 wpos, uint voxel) {
     uint brick_pool_idx = 0;
     uint layer0_pool_idx = 0;
 
-    if (getLayer0(layer0Pos, layer0_pool_idx)) {
-        if (getBrick(brickPos % LAYER0_SIZE, layer0_pool_idx, brick_pool_idx)) {
-            setVoxel(voxelPos, voxel, brick_pool_idx);
+    if (!getLayer0(layer0Pos, layer0_pool_idx)) {
+        allocLayer0(layer0Pos, layer0_pool_idx);
+    }
+    if (layer0_pool_idx > 0) {
+        ivec3 bp = brickPos % LAYER0_SIZE;
+        if (!getBrick(bp, layer0_pool_idx, brick_pool_idx)) {
+            allocBrick(bp, layer0_pool_idx, brick_pool_idx);
         }
     }
-
     return false;
 }
 

@@ -39,8 +39,9 @@ bool getVoxel(ivec3 pos, out vec3 color, uint brick_pool_idx) {
     int voxel_idx = local_pos.x + local_pos.y * 16 + local_pos.z * 16 * 16;
     if (voxel_idx < 0) return false;
     uint vi = uint(voxel_idx);
-    uint opacity_metalic = (bricks[brick_pool_idx - 1].voxels[vi] & (0xFF << 24)) >> 24;
-    if ((opacity_metalic << 1) == 0) return false;
+    if (bricks[brick_pool_idx - 1].voxels[vi] == 0) return false;
+    // uint opacity_metalic = (bricks[brick_pool_idx - 1].voxels[vi] & (0xFF << 24)) >> 24;
+    // if ((opacity_metalic << 1) == 0) return false;
     uint color_rgb565 = bricks[brick_pool_idx - 1].voxels[vi] & 0xFFFF;
     uint r5 = color_rgb565 & 31;
     uint g6 = (color_rgb565 & (63 << 5)) >> 5;

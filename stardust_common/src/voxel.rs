@@ -19,6 +19,8 @@ impl VoxelWithPos {
 pub struct Voxel(pub u32);
 
 impl Voxel {
+    /// Creates a new voxel. Opacity = 0 does not mean the voxel isn't there! A voxel is only
+    /// seen as "empty" if everything is set to 0. Recommended function for this is `Self::empty()`
     pub fn new(rgb: [u8; 3], roughness: u8, emissive: u8, metallic: bool, opacity: u8) -> Self {
         let r = (rgb[0] >> 3) as u16;
         let g = (rgb[1] >> 2) as u16;
@@ -31,7 +33,7 @@ impl Voxel {
     }
 
     pub fn empty() -> Self {
-        Self::new([0;3],0, 0,false,0)
+        Self(0)
     }
 
     pub fn rgb(&self) -> [u8; 3] {
