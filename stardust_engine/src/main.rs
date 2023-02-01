@@ -94,6 +94,21 @@ impl Engine {
 
         obj.widgets.add_widget(Box::new(PerfDebug), DockLoc::Floating);
 
+        let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..=255).into_par_iter().map(|x| {
+            let mut voxels = Vec::new();
+            for y in 0..=255 {
+                for z in 0..=255 {
+                    let v = stardust_common::voxel::Voxel::new([x,y,z], 255, 0, false, 255);
+                    let p = uvec3(x as u32 + 1024,y as u32 + 1024,z as u32 + 1024);
+                    voxels.push((v, p));
+                }
+            }
+            voxels
+        }).flatten().collect();
+        voxels.into_iter().for_each(|(v, p)| {
+            obj.internals.world.set_voxel(v, p);
+        });
+
         obj
     }
 }
@@ -161,18 +176,18 @@ impl App for Engine {
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
         // Add random voxels to the world
-        let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..16384).into_par_iter().map(|_| {
-            let mut rng = rand::thread_rng();
-            let x = (rng.next_u32() % 16384) / 64 + 1024;
-            let y = (rng.next_u32() % 16384) / 64 + 1024;
-            let z = (rng.next_u32() % 16384) / 64 + 1024;
-            let r = (rng.next_u32() % 255) as u8;
-            let g = (rng.next_u32() % 255) as u8;
-            let b = (rng.next_u32() % 255) as u8;
-            let v = stardust_common::voxel::Voxel::new([r,g,b], 255, 0, false, 255);
-            let p = uvec3(x as u32,y as u32,z as u32);
-            (v, p)
-        }).collect();
+        // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..16384).into_par_iter().map(|_| {
+        //     let mut rng = rand::thread_rng();
+        //     let x = (rng.next_u32() % 16384) / 64 + 1024;
+        //     let y = (rng.next_u32() % 16384) / 64 + 1024;
+        //     let z = (rng.next_u32() % 16384) / 64 + 1024;
+        //     let r = (rng.next_u32() % 255) as u8;
+        //     let g = (rng.next_u32() % 255) as u8;
+        //     let b = (rng.next_u32() % 255) as u8;
+        //     let v = stardust_common::voxel::Voxel::new([r,g,b], 255, 0, false, 255);
+        //     let p = uvec3(x as u32,y as u32,z as u32);
+        //     (v, p)
+        // }).collect();
         // let r = ((self.internals.frame_counter as f32) / 8f32).sin() * 8f32 + 24f32;
         // let r2 = (r * r) as i16;
         // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..128).into_par_iter().map(|x| {
@@ -195,9 +210,20 @@ impl App for Engine {
         //     }
         //     voxels
         // }).flatten().collect();
-        voxels.into_iter().for_each(|(v, p)| {
-            self.internals.world.set_voxel(v, p);
-        });
+        // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..=255).into_par_iter().map(|x| {
+        //     let mut voxels = Vec::new();
+        //     for y in 0..=255 {
+        //         for z in 0..=255 {
+        //             let v = stardust_common::voxel::Voxel::new([x,y,z], 255, 0, false, 255);
+        //             let p = uvec3(x as u32 + 1024,y as u32 + 1024,z as u32 + 1024);
+        //             voxels.push((v, p));
+        //         }
+        //     }
+        //     voxels
+        // }).flatten().collect();
+        // voxels.into_iter().for_each(|(v, p)| {
+        //     self.internals.world.set_voxel(v, p);
+        // });
 
         self.internals.current_scene.update(self.internals.delta_s);
     }
