@@ -213,7 +213,10 @@ impl App for Engine {
             match self.internals.resources.fetch_model("models/monu10.sdvx") {
                 Ok(model) => {
                     let gpu_model = stardust_world::GpuModel::from_model(ctx, model);
-                    self.internals.world.register_model(std::sync::Arc::new(gpu_model));
+                    let gpu_model = std::sync::Arc::new(gpu_model);
+                    self.internals.world.register_model(std::sync::Arc::clone(&gpu_model));
+                    // self.internals.world.register_model(std::sync::Arc::clone(&gpu_model));
+                    // self.internals.world.register_model(std::sync::Arc::clone(&gpu_model));
                 },
                 Err(_) => {},
             }
