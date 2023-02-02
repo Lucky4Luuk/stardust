@@ -263,6 +263,8 @@ impl RawModel {
         })
     }
 
+    /// Serialize the datastructure into bytes
+    /// Sorts the voxels and bricks as specified in the file format specifications
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
