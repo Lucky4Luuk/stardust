@@ -18,10 +18,17 @@ impl std::fmt::Display for MagicaVoxelError {
     }
 }
 
+struct MagicaVoxelMaterial {
+    rgb: [u8; 3],
+    opacity: u8,
+}
+
 pub struct MagicaVoxelModel {
     voxels: Vec<(IVec3, u8)>,
     min: IVec3,
     max: IVec3,
+
+    palette: Vec<MagicaVoxelMaterial>,
 }
 
 impl MagicaVoxelModel {
@@ -69,10 +76,20 @@ impl MagicaVoxelModel {
             handle_node(node, &model, &mut min, &mut max, &mut voxels);
         }
 
+        let mut palette = Vec::new();
+        for (_i, color) in model.palette.iter().enumerate() {
+            palette.push(MagicaVoxelMaterial {
+                rgb: [color.r, color.g, color.b],
+                opacity: color.a,
+            });
+        }
+
         Ok(Self {
             voxels: voxels,
             min: min,
             max: max,
+
+            palette,
         })
     }
 
@@ -87,10 +104,10 @@ impl MagicaVoxelModel {
     pub fn to_sdvx(self) -> Model {
         let mut voxels = Vec::new();
         let (min, _max) = self.voxel_bounds();
-        for (vpos, voxel) in self.voxels {
+        for (vpos, pal_idx) in self.voxels {
             let wpos_raw = vpos + min;
             let wpos = uvec3(wpos_raw.x as u32, wpos_raw.z as u32, wpos_raw.y as u32);
-            let rgb = [255, 255, 255];
+            let rgb = self.palette[pal_idx as usize].rgb;
             let sdvoxel = SDVoxel::new(rgb, 255, 0, false, 255);
             voxels.push((sdvoxel, wpos));
         }
