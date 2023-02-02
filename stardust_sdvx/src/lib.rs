@@ -91,6 +91,7 @@ impl Header {
     }
 }
 
+#[derive(Clone)]
 struct RawBrick {
     position: [u16; 3],
     indices: Vec<u32>,
@@ -275,7 +276,10 @@ impl RawModel {
             bytes.extend_from_slice(&voxel_bytes);
         }
 
-        for brick in &self.bricks {
+        let mut bricks = self.bricks.clone();
+        bricks.sort_by_key(|brick| brick.position);
+
+        for brick in bricks {
             bytes.append(&mut brick.to_bytes());
         }
 
