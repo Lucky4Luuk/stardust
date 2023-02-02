@@ -267,7 +267,10 @@ impl RawModel {
 
         bytes.append(&mut self.header.to_bytes());
 
-        for voxel in &self.voxels {
+        let mut voxels = self.voxels.clone();
+        voxels.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+        for voxel in voxels {
             let voxel_bytes = u32::to_le_bytes(voxel.0);
             bytes.extend_from_slice(&voxel_bytes);
         }

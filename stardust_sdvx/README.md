@@ -4,6 +4,7 @@ Version 0.1
 ## Contents
 1. [Overview](#overview)
 2. [Part specification](#part-specification)
+3. [Recommendations](#recommendations)
 
 ## Overview
 Each file contains 1 model.
@@ -51,3 +52,7 @@ Bricks are placed on a grid with size brick_size. Example: `brick_location_x = 3
 | 2     | u16   | Y location    |
 | 2     | u16   | Z location    |
 | 2     | u16   | Padding       |
+
+## Recommendations
+Here's some advice for those implementing support for SDVX files. Keep in mind none of this is required!
+- Sort your voxel list by their raw value before saving. Simply sort them low to high, based on the internal unsigned 32 bit number representing the voxel. This way you can consistently get the same file, and if everyone does this, get the same file as others.
