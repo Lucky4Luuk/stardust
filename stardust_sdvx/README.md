@@ -7,21 +7,10 @@ Version 0.1
 3. [Recommendations](#recommendations)
 
 ## Overview
-Each file contains 1 model.
-1. First comes the header, which gets padded to 16 bytes in length.
-2. After the header first comes the list of voxels, sized `(voxel_count * voxel_size)`.
-3. After the list of voxels comes the list of bricks, which are sized `(brick_header_size + (brick_size^3) * index_size)`. The brick header is padded to 8 bytes in length.
+Each file contains 1 [model](#model).
+Internally, files are stored as [CBOR](https://cbor.io/) data.
 
 ## Part specification
-### Header
-| Bytes | Type  | Description   |
-|-------|-------|---------------|
-| 2     | u16   | Major version |
-| 2     | u16   | Minor version |
-| 2     | u16   | Brick size    |
-| 8     | u64   | Voxel count   |
-| 2     | u16   | Padding       |
-
 ### Voxel data
 Voxels are stored as unsigned 32 bit integers.
 ```
@@ -34,26 +23,15 @@ Format (bits):
 ```
 
 ### Model
-Models are stored as a list of bricks and a list of voxels. They are kept separated to support duplicate voxels, so voxels can simply be referenced multiple times.
-There is always 1 voxel already defined in the model, which is the empty voxel. In the future, this empty voxel might be used to define certain settings for the model, but this is not yet defined. The space is still taken up however!
-The bricks size is variable to allow some headroom for compression vs performance.
-More information on the bricks can be found [here](#bricks).
+Models are stored as a list of voxels and a list of positions with voxel indices.
+This means there is a voxel pool, containing all unique voxels, and a list of [positions with indices](#positionindex) into this pool.
 
-### Bricks
-Each brick is defined as a brick header, followed by a `[brick_size x brick_size x brick_size]` array of voxel indices.
-These indices are meant to index into the list of voxels. Index 0 points at the first voxel, index 1 points at the 2nd voxel, etc.
-Each index is an unsigned 32 bit integer. Voxels are ordered 0->brick_size on each axis, starting with X, then Y, then Z.
-Bricks are placed on a grid with size brick_size. Example: `brick_location_x = 3` means the [0,0,0] voxel in the brick is located at `3 * brick_size` in world coordinates.
-
-#### Brick header
-| Bytes | Type  | Description   |
-|-------|-------|---------------|
-| 2     | u16   | X location    |
-| 2     | u16   | Y location    |
-| 2     | u16   | Z location    |
-| 2     | u16   | Padding       |
+### PositionIndex
+Positions with indices are stored as `[u32; 4] = [x, y, z, index]`.
+This means that positions cannot be negative!
+Duplicate positions are technically allowed, because in practice, they tend to map to the same location, so it won't do anything.
 
 ## Recommendations
 Here's some advice for those implementing support for SDVX files. Keep in mind none of this is required!
 - Sort your voxel list by their raw value before serializing. Simply sort them low to high, based on the internal unsigned 32 bit number representing the voxel. This way you can consistently get the same file, and if everyone does this, get the same file as others.
-- Sort your bricks before serializing! Sort these by their position, low to high, X first, then Y, then Z.
+- Sort your position list by their location, X first, then Y, then Z, 0 to high.

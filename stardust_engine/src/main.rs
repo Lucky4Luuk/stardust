@@ -1,10 +1,9 @@
 #[macro_use] extern crate log;
-#[macro_use] extern crate anyhow;
 
 use std::time::Instant;
 use std::collections::VecDeque;
 use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rayon::prelude::*;
 use foxtail::prelude::*;
@@ -63,15 +62,15 @@ impl Engine {
         let render_size = ctx.size();
 
         let mut obj = Self {
-            widgets: widgets,
+            widgets,
             internals: EngineInternals {
-                world: world,
-                renderer: renderer,
+                world,
+                renderer,
                 framebuffer: Framebuffer::new(ctx),
                 render_size: (render_size.width, render_size.height),
                 render_offset: (0, 0),
 
-                camera: camera,
+                camera,
                 delta_s: 0.0,
                 frame_counter: 0,
                 cam_rot_y: 0.0,
@@ -160,7 +159,7 @@ impl App for Engine {
         }
     }
 
-    fn update(&mut self, _ctx: &mut Context) {
+    fn update(&mut self, ctx: &mut Context) {
         use rand::RngCore;
 
         let now = Instant::now();
@@ -177,22 +176,21 @@ impl App for Engine {
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
         // Add random voxels to the world
-        (0..256).into_par_iter().for_each(|_| {
-            let mut rng = rand::thread_rng();
-            let x = (rng.next_u32() % 16384) / 64 + 1024;
-            let y = (rng.next_u32() % 16384) / 64 + 1024;
-            let z = (rng.next_u32() % 16384) / 64 + 1024;
-            let r = (rng.next_u32() % 255) as u8;
-            let g = (rng.next_u32() % 255) as u8;
-            let b = (rng.next_u32() % 255) as u8;
-            let v = stardust_common::voxel::Voxel::new([r,g,b], 255, 0, false, 255);
-            let p = uvec3(x as u32 + 256,y as u32,z as u32);
-            self.internals.world.set_voxel(v, p);
-        });
+        // (0..256).into_par_iter().for_each(|_| {
+        //     let mut rng = rand::thread_rng();
+        //     let x = (rng.next_u32() % 16384) / 64 + 1024;
+        //     let y = (rng.next_u32() % 16384) / 64 + 1024;
+        //     let z = (rng.next_u32() % 16384) / 64 + 1024;
+        //     let r = (rng.next_u32() % 255) as u8;
+        //     let g = (rng.next_u32() % 255) as u8;
+        //     let b = (rng.next_u32() % 255) as u8;
+        //     let v = stardust_common::voxel::Voxel::new([r,g,b], 255, 0, false, 255);
+        //     let p = uvec3(x as u32 + 256,y as u32,z as u32);
+        //     self.internals.world.set_voxel(v, p);
+        // });
         // let r = ((self.internals.frame_counter as f32) / 8f32).sin() * 8f32 + 24f32;
         // let r2 = (r * r) as i16;
-        // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..128).into_par_iter().map(|x| {
-        //     let mut voxels = Vec::new();
+        // (0..128).into_par_iter().for_each(|x| {
         //     for y in 0..128 {
         //         for z in 0..128 {
         //             let cx = (x % 16) as u8;
@@ -201,27 +199,40 @@ impl App for Engine {
         //             let ox = x as i16 - 64;
         //             let oy = y as i16 - 64;
         //             let oz = z as i16 - 64;
-        //             let o = if ox * ox + oy * oy + oz * oz > r2 {
-        //                 0
+        //             let v = if ox * ox + oy * oy + oz * oz > r2 {
+        //                 stardust_common::voxel::Voxel::empty()
         //             } else {
-        //                 255
+        //                 stardust_common::voxel::Voxel::new(c, 255, 0, false, 255)
         //             };
-        //             voxels.push((stardust_common::voxel::Voxel::new(c, 255, 0, false, o), uvec3(x+1024,y+1024,z+1024)));
+        //             self.internals.world.set_voxel(v, uvec3(x+1024,y+1024,z+1024));
         //         }
         //     }
-        //     voxels
-        // }).flatten().collect();
-        // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..=255).into_par_iter().map(|x| {
-        //     let mut voxels = Vec::new();
-        //     for y in 0..=255 {
-        //         for z in 0..=255 {
-        //             let v = stardust_common::voxel::Voxel::new([x,y,z], 255, 0, false, 255);
-        //             let p = uvec3(x as u32 + 1024,y as u32 + 1024,z as u32 + 1024);
-        //             voxels.push((v, p));
-        //         }
-        //     }
-        //     voxels
-        // }).flatten().collect();
+        // });
+
+        if self.internals.world.gpu_models.len() == 0 {
+            match self.internals.resources.fetch_model("models/monu10.sdvx") {
+                Ok(model) => {
+                    let gpu_model = stardust_world::GpuModel::from_model(ctx, model);
+                    self.internals.world.register_model(std::sync::Arc::new(gpu_model));
+                },
+                Err(_) => {},
+            }
+
+            // let mut voxels = Vec::new();
+            // for x in 0..16 {
+            //     for y in 0..16 {
+            //         for z in 0..16 {
+            //             let p = uvec3(x, y, z);
+            //             let v = stardust_common::voxel::Voxel::new([255; 3], 255, 0, false, 255);
+            //             voxels.push((v, p));
+            //             // self.internals.world.set_voxel(v, p);
+            //         }
+            //     }
+            // }
+            // let model = stardust_sdvx::Model::from_voxels(voxels);
+            // let gpu_model = stardust_world::GpuModel::from_model(ctx, &model);
+            // self.internals.world.register_model(std::sync::Arc::new(gpu_model));
+        }
 
         self.internals.current_scene.update(self.internals.delta_s);
     }

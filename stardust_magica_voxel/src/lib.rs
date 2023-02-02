@@ -2,7 +2,7 @@ use stardust_common::{
     voxel::Voxel as SDVoxel,
     math::*,
 };
-use stardust_sdvx::RawModel;
+use stardust_sdvx::Model;
 
 use dot_vox::*;
 
@@ -45,9 +45,10 @@ impl MagicaVoxelModel {
                                 let vmodel = &model.models[smodel.model_id as usize];
                                 for voxel in &vmodel.voxels {
                                     let vpos = ivec3(voxel.x.into(),voxel.y.into(),voxel.z.into());
-                                    *min = min.min(vpos);
-                                    *max = max.max(vpos);
-                                    voxels.push((pos + vpos, voxel.i));
+                                    let wpos = pos + vpos;
+                                    *min = min.min(wpos);
+                                    *max = max.max(wpos);
+                                    voxels.push((wpos, voxel.i));
                                 }
                             }
                         },
@@ -83,17 +84,16 @@ impl MagicaVoxelModel {
         todo!();
     }
 
-    pub fn to_sdvx(self) -> RawModel {
-        let brick_size = 8;
+    pub fn to_sdvx(self) -> Model {
         let mut voxels = Vec::new();
-        let (min, max) = self.voxel_bounds();
+        let (min, _max) = self.voxel_bounds();
         for (vpos, voxel) in self.voxels {
-            let wpos_raw = (vpos + min).to_array();
-            let wpos = uvec3(wpos_raw[0] as u32, wpos_raw[1] as u32, wpos_raw[2] as u32);
+            let wpos_raw = vpos + min;
+            let wpos = uvec3(wpos_raw.x as u32, wpos_raw.z as u32, wpos_raw.y as u32);
             let rgb = [255, 255, 255];
             let sdvoxel = SDVoxel::new(rgb, 255, 0, false, 255);
-            voxels.push((wpos, sdvoxel));
+            voxels.push((sdvoxel, wpos));
         }
-        RawModel::with_voxels(voxels.into_iter(), brick_size)
+        Model::from_voxels(voxels)
     }
 }

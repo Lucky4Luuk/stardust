@@ -9,9 +9,11 @@ use stardust_common::voxel::Voxel;
 
 pub mod layer0;
 pub mod brick;
+mod data;
 
 use layer0::*;
 use brick::*;
+pub use data::*;
 
 pub const BRICK_POOL_SIZE: usize = 32768;
 pub const LAYER0_POOL_SIZE: usize = 8192;
@@ -32,6 +34,11 @@ pub struct World {
     cs_process_voxels: ComputeShader,
     cs_alloc_layers: ComputeShader,
     cs_alloc_bricks: ComputeShader,
+    cs_place_model: ComputeShader,
+
+    pub gpu_models: Vec<Arc<GpuModel>>,
+
+    voxels_queued: usize,
 }
 
 impl World {
@@ -51,6 +58,7 @@ impl World {
         let cs_process_voxels = ComputeShader::new(ctx, include_str!("../shaders/cs_process_voxel_queue.glsl"));
         let cs_alloc_layers = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_layers.glsl"));
         let cs_alloc_bricks = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_bricks.glsl"));
+        let cs_place_model = ComputeShader::new(ctx, include_str!("../shaders/cs_place_model.glsl"));
 
         let mut obj = Self {
             brick_pool,
@@ -66,83 +74,60 @@ impl World {
             cs_process_voxels,
             cs_alloc_layers,
             cs_alloc_bricks,
+            cs_place_model,
+
+            gpu_models: Vec::new(),
+
+            voxels_queued: 0,
         };
 
-        // let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..=255).into_iter().map(|x| {
-        //     let mut voxels = Vec::new();
-        //     for y in 0..=255 {
-        //         for z in 0..=255 {
-        //             let v = stardust_common::voxel::Voxel::new([x,y,z], 255, 0, false, 0);
-        //             let p = uvec3(x as u32 + 1024,y as u32 + 1024,z as u32 + 1024);
-        //             voxels.push((v, p));
+        // for ix in 0..128 {
+        //     for iy in 0..128 {
+        //         for iz in 0..128 {
+        //             let cx = (ix % 16) as u8;
+        //             let cy = (iy % 16) as u8;
+        //             let c = [cx * 16, cy * 16, 255];
+        //             let ox = ix as i16 - 64;
+        //             let oy = iy as i16 - 64;
+        //             let oz = iz as i16 - 64;
+        //             let v = if ox * ox + oy * oy + oz * oz > 57 * 57 {
+        //                 Voxel::empty()
+        //             } else {
+        //                 Voxel::new(c, 255, 0, false, 255)
+        //             };
+        //             obj.set_voxel(
+        //                 v,
+        //                 uvec3(
+        //                     ix + 1024,
+        //                     iy + 1024,
+        //                     iz + 1024,
+        //                 ),
+        //             );
         //         }
         //     }
-        //     voxels
-        // }).flatten().collect();
-        // voxels.into_iter().for_each(|(v, p)| {
-        //     obj.set_voxel(v, p);
-        // });
-        // for _ in 0..2 {
-        //     for ix in 0..128 {
-        //         for iy in 0..128 {
-        //             for iz in 0..128 {
-        //                 // let cx = (ix % 16) as u8;
-        //                 // let cy = (iy % 16) as u8;
-        //                 // let c = [cx * 16, cy * 16, 255];
-        //                 // let o = 0;
-        //                 // let v = Voxel::new(c, 255, 0, false, o);
-        //                 let v = Voxel::empty();
-        //                 obj.set_voxel(
-        //                     v,
-        //                     uvec3(
-        //                         ix + 1024,
-        //                         iy + 1024,
-        //                         iz + 1024,
-        //                     ),
-        //                 );
-        //             }
-        //         }
-        //     }
-        //     obj.process(ctx);
         // }
-        for ix in 0..128 {
-            for iy in 0..128 {
-                for iz in 0..128 {
-                    let cx = (ix % 16) as u8;
-                    let cy = (iy % 16) as u8;
-                    let c = [cx * 16, cy * 16, 255];
-                    let ox = ix as i16 - 64;
-                    let oy = iy as i16 - 64;
-                    let oz = iz as i16 - 64;
-                    let v = if ox * ox + oy * oy + oz * oz > 57 * 57 {
-                        Voxel::empty()
-                    } else {
-                        Voxel::new(c, 255, 0, false, 255)
-                    };
-                    obj.set_voxel(
-                        v,
-                        uvec3(
-                            ix + 1024,
-                            iy + 1024,
-                            iz + 1024,
-                        ),
-                    );
-                }
-            }
-        }
-
-        obj.process(ctx);
+        //
+        // obj.process(ctx);
         obj
     }
 
     pub fn voxels_queued(&self) -> usize {
-        self.voxel_queue.lock().unwrap().len()
+        self.voxels_queued
     }
 
+    /// Queues a voxel to be uploaded to the GPU and placed in the world.
+    /// Voxel placement order cannot be relied on!
+    /// They get uploaded by a compute shader in batches of 4096 voxels, with no ordering within each batch
+    /// Batches ARE ordered, however!
     pub fn set_voxel(&self, voxel: Voxel, world_pos: UVec3) {
         puffin::profile_function!();
         let mut lock = self.voxel_queue.lock().unwrap();
         lock.push((voxel, world_pos));
+    }
+
+    /// Registers a model living in GPU memory. Arc<T> so you can keep a reference to it!
+    pub fn register_model(&mut self, model: Arc<GpuModel>) {
+        self.gpu_models.push(model);
     }
 
     pub fn bind(&mut self) {
@@ -162,45 +147,92 @@ impl World {
         self.voxel_queue_gpu.write(0, &write_slice);
     }
 
+    fn process_internal(&mut self, ctx: &Context, size: u32) {
+        self.bind();
+        self.voxel_queue_gpu.bind(3);
+        self.brick_pool_counter.bind(4);
+        self.layer0_pool_counter.bind(5);
+
+        self.cs_alloc_layers.dispatch([size, 1, 1]);
+        ctx.fence();
+        self.cs_alloc_bricks.dispatch([size, 1, 1]);
+        ctx.fence();
+        self.cs_process_voxels.dispatch([size, 1, 1]);
+
+        self.layer0_pool_counter.unbind();
+        self.brick_pool_counter.unbind();
+        self.voxel_queue_gpu.unbind();
+        self.unbind();
+
+        ctx.fence();
+    }
+
     pub fn process(&mut self, ctx: &Context) {
         puffin::profile_function!();
 
-        let mut write_total: Vec<Vec<[u32; 4]>> = Vec::new();
+        self.voxels_queued = self.voxel_queue.lock().unwrap().len();
+
+        // Process GPU model changes
         {
-            let mut lock = self.voxel_queue.lock().unwrap();
+            puffin::profile_scope!("process_gpu_models");
+            for i in 0..self.gpu_models.len() {
+                let mut offset = 0;
+                let count = self.gpu_models[i].voxels;
+                'process: loop {
+                    let size = (count - offset).min(VOXEL_QUEUE_SIZE);
 
-            for chunk in lock.chunks(VOXEL_QUEUE_SIZE) {
-                let mut write_slice = Vec::new();
-                for (voxel, wpos) in chunk {
-                    write_slice.push([wpos.x, wpos.y, wpos.z, voxel.0]);
+                    self.voxel_queue_gpu.bind(0);
+                    unsafe {
+                        ctx.gl.bind_buffer_base(foxtail::glow::SHADER_STORAGE_BUFFER, 1, Some(self.gpu_models[i].vox_buf.buf()));
+                    }
+
+                    self.cs_place_model.set_uniforms(|uni| {
+                        uni.set_u32("offset", offset as u32);
+                    });
+                    self.cs_place_model.dispatch([size as u32, 1, 1]);
+                    ctx.fence();
+
+                    unsafe {
+                        ctx.gl.bind_buffer_base(foxtail::glow::SHADER_STORAGE_BUFFER, 1, None);
+                    }
+                    self.voxel_queue_gpu.unbind();
+
+                    self.process_internal(ctx, size as u32);
+
+                    offset += VOXEL_QUEUE_SIZE;
+                    if offset >= count {
+                        break 'process;
+                    }
                 }
-                write_total.push(write_slice);
             }
-
-            lock.clear();
         }
 
-        for slice in write_total {
-            let size = slice.len();
-            self.write_queue_to_gpu(slice);
-            // self.brick_pool_counter.reset(0);
-            // self.layer0_pool_counter.reset(0);
+        // Process voxel queue
+        {
+            puffin::profile_scope!("process_cpu_voxels");
+            let mut write_total: Vec<Vec<[u32; 4]>> = Vec::new();
+            {
+                let mut lock = self.voxel_queue.lock().unwrap();
 
-            self.bind();
-            self.voxel_queue_gpu.bind(3);
-            self.brick_pool_counter.bind(4);
-            self.layer0_pool_counter.bind(5);
+                for chunk in lock.chunks(VOXEL_QUEUE_SIZE) {
+                    let mut write_slice = Vec::new();
+                    for (voxel, wpos) in chunk {
+                        write_slice.push([wpos.x, wpos.y, wpos.z, voxel.0]);
+                    }
+                    write_total.push(write_slice);
+                }
 
-            self.cs_alloc_layers.dispatch([size as u32, 1, 1]);
-            ctx.fence();
-            self.cs_alloc_bricks.dispatch([size as u32, 1, 1]);
-            ctx.fence();
-            self.cs_process_voxels.dispatch([size as u32, 1, 1]);
+                // TODO: This doesn't actually free up the allocated memory it seems.
+                //       Might be worth looking into freeing up that memory. If users
+                //       queue up a lot of voxels, it could permanently take up a lot of memory
+                lock.clear();
+            }
 
-            self.layer0_pool_counter.unbind();
-            self.brick_pool_counter.unbind();
-            self.voxel_queue_gpu.unbind();
-            self.unbind();
+            for slice in write_total {
+                let size = slice.len();
+                self.write_queue_to_gpu(slice);
+                self.process_internal(ctx, size as u32);
+            }
         }
 
         self.voxel_queue_gpu.clear();

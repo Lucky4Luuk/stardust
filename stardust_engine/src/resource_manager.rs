@@ -5,7 +5,7 @@ use vfs::*;
 use anyhow::Error;
 use thiserror::Error;
 
-use stardust_sdvx::{RawModel, Model};
+use stardust_sdvx::Model;
 
 #[derive(Debug, Error)]
 pub enum ResourceManagerError {
@@ -63,10 +63,9 @@ impl ResourceManager {
                 }
                 drop(file);
 
-                match RawModel::from_bytes(&bytes) {
+                match Model::from_bytes(&bytes) {
                     Err(e) => { self.read_errors.insert(path.to_string(), Rc::new(e.into())); },
-                    Ok(raw_model) => {
-                        let model = Model::from_raw(raw_model);
+                    Ok(model) => {
                         self.models.insert(path.to_string(), Rc::new(model));
                     }
                 }
@@ -102,14 +101,17 @@ impl ResourceManager {
                             Ok(mv_model) => {
                                 let sdvx_model = mv_model.to_sdvx();
                                 let sdvx_path = format!("{}.sdvx", path_wo_ext);
-                                match self.vfs.create_file(&sdvx_path) {
+                                match sdvx_model.to_bytes() {
                                     Err(e) => { self.read_errors.insert(sdvx_path.to_string(), Rc::new(e.into())); },
-                                    Ok(mut file) => {
-                                        if let Err(e) = file.write_all(&sdvx_model.to_bytes()) {
-                                            error!("Error writing path: {}", e);
-                                        }
-                                        self.load_resource(&sdvx_path);
-                                        self.resource_info.insert(path.to_string(), format!("File was used to generate {}", sdvx_path));
+                                    Ok(bytes) => match self.vfs.create_file(&sdvx_path) {
+                                        Err(e) => { self.read_errors.insert(sdvx_path.to_string(), Rc::new(e.into())); },
+                                        Ok(mut file) => {
+                                            if let Err(e) = file.write_all(&bytes) {
+                                                error!("Error writing path: {}", e);
+                                            }
+                                            self.load_resource(&sdvx_path);
+                                            self.resource_info.insert(path.to_string(), format!("File was used to generate {}", sdvx_path));
+                                        },
                                     },
                                 }
                             },

@@ -11,5 +11,6 @@ impl super::Widget for PerfDebug {
         ui.label(&format!("render resolution: {:?}", engine.render_size));
         ui.label(&format!("cam_pos: {:?}", engine.camera.pos));
         ui.label(&format!("voxels_queued: {}", engine.world.voxels_queued()));
+        ui.label(&format!("gpu_models: {}", engine.world.gpu_models.len()));
     }
 }
