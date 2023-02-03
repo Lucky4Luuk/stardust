@@ -45,6 +45,7 @@ impl super::Widget for ModelSelector {
                         let fields = match self.comp_name.as_str() {
                             "Model" => {
                                 if let Some(cmodel) = &mut comp_info.model_component {
+                                    cmodel.dirty = true;
                                     Some(cmodel.fields())
                                 } else {
                                     None
@@ -57,7 +58,6 @@ impl super::Widget for ModelSelector {
                                 match field {
                                     Value::ModelReference(model_ref) => {
                                         **model_ref = Some(Arc::clone(model));
-                                        println!("updated ref");
                                     },
                                     _ => {},
                                 }

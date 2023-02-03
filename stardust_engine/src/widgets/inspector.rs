@@ -127,8 +127,8 @@ fn draw_generic_component<S: Into<String>>(ctx: &mut super::WidgetContext, ui: &
                             None => "None (click to select)".to_string(),
                         };
                         let resp = ui.add(egui::TextEdit::singleline(&mut model_name));
+                        if resp.has_focus() { resp.surrender_focus(); }
                         if resp.clicked() {
-                            resp.surrender_focus();
                             ctx.add_widget(Box::new(super::ModelSelector::new(entity, name.clone(), field_name)), super::DockLoc::Floating);
                             dirty = true;
                         }
