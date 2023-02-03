@@ -48,7 +48,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    fn new(ctx: &mut Context) -> Self {
+    fn new(ctx: &Context) -> Self {
         ctx.set_maximized(true);
 
         let widgets = WidgetManager::new();
@@ -145,7 +145,7 @@ impl App for Engine {
         }
     }
 
-    fn update(&mut self, ctx: &mut Context) {
+    fn update(&mut self, ctx: &Context) {
         let now = Instant::now();
         let elapsed = now - self.last_frame;
         self.delta_s = elapsed.as_secs_f32();
@@ -163,7 +163,7 @@ impl App for Engine {
         self.internals.current_scene.update_dirty_models(&self.internals.world);
     }
 
-    fn render(&mut self, ctx: &mut Context) {
+    fn render(&mut self, ctx: &Context) {
         puffin::profile_function!();
         self.frame_counter += 1;
 
