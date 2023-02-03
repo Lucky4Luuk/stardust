@@ -9,8 +9,12 @@ layout(std430, binding = 1) buffer model_voxels {
     uvec4 mvoxels[];
 };
 uniform uint offset;
+uniform uvec4 pos; // w = 0 means to remove voxels instead of place them
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
-    voxels[index] = mvoxels[index + offset];
+    uvec4 voxel = mvoxels[index + offset];
+    voxel.xyz += pos.xyz;
+    voxel.w *= pos.w;
+    voxels[index] = voxel;
 }

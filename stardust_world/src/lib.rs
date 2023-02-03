@@ -28,6 +28,8 @@ pub struct World {
     voxel_queue: Arc<Mutex<Vec<(Voxel, UVec3)>>>,
     voxel_queue_gpu: FixedSizeBuffer<[u32; 4]>,
 
+    model_queue: Arc<Mutex<Vec<(Arc<GpuModel>, UVec3, UVec3)>>>,
+
     brick_pool_counter: AtomicCounter,
     layer0_pool_counter: AtomicCounter,
 
@@ -39,6 +41,7 @@ pub struct World {
     pub gpu_models: Vec<Arc<GpuModel>>,
 
     voxels_queued: usize,
+    models_queued: usize,
 }
 
 impl World {
@@ -60,13 +63,15 @@ impl World {
         let cs_alloc_bricks = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_bricks.glsl"));
         let cs_place_model = ComputeShader::new(ctx, include_str!("../shaders/cs_place_model.glsl"));
 
-        let mut obj = Self {
+        Self {
             brick_pool,
             layer0_pool,
             layer0_map,
 
             voxel_queue: Arc::new(Mutex::new(Vec::new())),
             voxel_queue_gpu,
+
+            model_queue: Arc::new(Mutex::new(Vec::new())),
 
             brick_pool_counter,
             layer0_pool_counter,
@@ -79,40 +84,16 @@ impl World {
             gpu_models: Vec::new(),
 
             voxels_queued: 0,
-        };
-
-        // for ix in 0..128 {
-        //     for iy in 0..128 {
-        //         for iz in 0..128 {
-        //             let cx = (ix % 16) as u8;
-        //             let cy = (iy % 16) as u8;
-        //             let c = [cx * 16, cy * 16, 255];
-        //             let ox = ix as i16 - 64;
-        //             let oy = iy as i16 - 64;
-        //             let oz = iz as i16 - 64;
-        //             let v = if ox * ox + oy * oy + oz * oz > 57 * 57 {
-        //                 Voxel::empty()
-        //             } else {
-        //                 Voxel::new(c, 255, 0, false, 255)
-        //             };
-        //             obj.set_voxel(
-        //                 v,
-        //                 uvec3(
-        //                     ix + 1024,
-        //                     iy + 1024,
-        //                     iz + 1024,
-        //                 ),
-        //             );
-        //         }
-        //     }
-        // }
-        //
-        // obj.process(ctx);
-        obj
+            models_queued: 0,
+        }
     }
 
     pub fn voxels_queued(&self) -> usize {
         self.voxels_queued
+    }
+
+    pub fn models_queued(&self) -> usize {
+        self.models_queued
     }
 
     /// Queues a voxel to be uploaded to the GPU and placed in the world.
@@ -123,6 +104,12 @@ impl World {
         puffin::profile_function!();
         let mut lock = self.voxel_queue.lock().unwrap();
         lock.push((voxel, world_pos));
+    }
+
+    pub fn update_model(&self, model: Arc<GpuModel>, old_pos: UVec3, new_pos: UVec3) {
+        puffin::profile_function!();
+        let mut lock = self.model_queue.lock().unwrap();
+        lock.push((model, old_pos, new_pos));
     }
 
     /// Registers a model living in GPU memory. Arc<T> so you can keep a reference to it!
@@ -171,40 +158,53 @@ impl World {
         puffin::profile_function!();
 
         self.voxels_queued = self.voxel_queue.lock().unwrap().len();
+        self.models_queued = self.model_queue.lock().unwrap().len();
 
         // Process GPU model changes
         {
             puffin::profile_scope!("process_gpu_models");
-            for i in 0..self.gpu_models.len() {
-                let mut offset = 0;
-                let count = self.gpu_models[i].voxels;
-                'process: loop {
-                    let size = (count - offset).min(VOXEL_QUEUE_SIZE);
+            for i in 0..self.models_queued {
+                let (model, prev, new) = {
+                    let (ref_model, ref_prev, ref_new) = &self.model_queue.lock().unwrap()[i];
+                    (Arc::clone(ref_model), *ref_prev, *ref_new)
+                };
+                for j in 0..2 {
+                    let mut offset = 0;
+                    let count = model.voxels;
+                    'process: loop {
+                        let size = (count - offset).min(VOXEL_QUEUE_SIZE);
 
-                    self.voxel_queue_gpu.bind(0);
-                    unsafe {
-                        ctx.gl.bind_buffer_base(foxtail::glow::SHADER_STORAGE_BUFFER, 1, Some(self.gpu_models[i].vox_buf.buf()));
-                    }
+                        self.voxel_queue_gpu.bind(0);
+                        unsafe {
+                            ctx.gl.bind_buffer_base(foxtail::glow::SHADER_STORAGE_BUFFER, 1, Some(self.gpu_models[i].vox_buf.buf()));
+                        }
 
-                    self.cs_place_model.set_uniforms(|uni| {
-                        uni.set_u32("offset", offset as u32);
-                    });
-                    self.cs_place_model.dispatch([size as u32, 1, 1]);
-                    ctx.fence();
+                        self.cs_place_model.set_uniforms(|uni| {
+                            uni.set_u32("offset", offset as u32);
+                            if j == 0 {
+                                uni.set_uvec4("pos", [prev.x, prev.y, prev.z, 0]);
+                            } else {
+                                uni.set_uvec4("pos", [new.x, new.y, new.z, 1]);
+                            }
+                        });
+                        self.cs_place_model.dispatch([size as u32, 1, 1]);
+                        ctx.fence();
 
-                    unsafe {
-                        ctx.gl.bind_buffer_base(foxtail::glow::SHADER_STORAGE_BUFFER, 1, None);
-                    }
-                    self.voxel_queue_gpu.unbind();
+                        unsafe {
+                            ctx.gl.bind_buffer_base(foxtail::glow::SHADER_STORAGE_BUFFER, 1, None);
+                        }
+                        self.voxel_queue_gpu.unbind();
 
-                    self.process_internal(ctx, size as u32);
+                        self.process_internal(ctx, size as u32);
 
-                    offset += VOXEL_QUEUE_SIZE;
-                    if offset >= count {
-                        break 'process;
+                        offset += VOXEL_QUEUE_SIZE;
+                        if offset >= count {
+                            break 'process;
+                        }
                     }
                 }
             }
+            self.model_queue.lock().unwrap().clear();
         }
 
         // Process voxel queue

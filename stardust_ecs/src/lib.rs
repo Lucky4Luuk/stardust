@@ -2,9 +2,10 @@
 use specs::prelude::*;
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use stardust_common::math::*;
-use stardust_sdvx::Model;
+use stardust_world::GpuModel;
 
 mod transform;
 pub use transform::*;
@@ -17,8 +18,10 @@ pub mod prelude;
 pub enum Value<'a> {
     // Primitives
     String(&'a mut String),
+    Bool(&'a mut bool),
+
     PrimF32(&'a mut f32),
-    
+
     PrimU8(&'a mut u32),
     PrimU16(&'a mut u32),
     PrimU32(&'a mut u32),
@@ -29,16 +32,16 @@ pub enum Value<'a> {
     Vec4(&'a mut f32, &'a mut f32, &'a mut f32, &'a mut f32),
 
     // Complex values
-    ModelReference(&'a mut &'a Model),
+    ModelReference(&'a mut Option<Arc<GpuModel>>),
 }
 
 #[derive(Debug, Component, Clone)]
 #[storage(VecStorage)]
 pub struct CompName(pub String);
 impl CompName {
-    pub fn fields(&mut self) -> BTreeMap<String, Value> {
+    pub fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
         let mut map = BTreeMap::new();
-        map.insert(String::from("Name"), Value::String(&mut self.0));
+        map.insert(String::from("Name"), (true, Value::String(&mut self.0)));
         map
     }
 }
@@ -51,7 +54,7 @@ pub struct SceneSettings {
 impl SceneSettings {
     pub fn new() -> Self {
         Self {
-            voxels_per_meter: 16.0, // 16 voxels per meter
+            voxels_per_meter: 1.0, // 16 voxels per meter
         }
     }
 }
@@ -107,6 +110,11 @@ impl Scene {
         sys_transpos_mod_vpos_update.run_now(&mut self.world);
 
         self.world.maintain();
+    }
+
+    pub fn update_dirty_models(&mut self, voxel_world: &stardust_world::World) {
+        let mut sys_update_dirty_models = DirtyModelsUpdate { voxel_world };
+        sys_update_dirty_models.run_now(&mut self.world);
     }
 
     pub fn entity_list(&mut self) -> Vec<EntityInfo> {
@@ -173,6 +181,25 @@ impl Scene {
                 *cur_cmodel = cmodel;
             } else {
                 model_storage.insert(entity, cmodel).expect("Failed to add component!");
+            }
+        }
+    }
+}
+
+struct DirtyModelsUpdate<'w> {
+    voxel_world: &'w stardust_world::World,
+}
+
+impl <'a, 'w> System<'a> for DirtyModelsUpdate<'w> {
+    type SystemData = WriteStorage<'a, CompModel>;
+
+    fn run(&mut self, mut cmodel: Self::SystemData) {
+        for model in (&mut cmodel).join() {
+            if model.dirty {
+                if let Some(model_ref) = &model.model_ref {
+                    self.voxel_world.update_model(Arc::clone(model_ref), model.prev_vox_pos, model.vox_pos);
+                }
+                model.dirty = false;
             }
         }
     }

@@ -35,17 +35,19 @@ impl super::Widget for Inspector {
         }
 
         if let Some(entity) = self.current_entity {
+            self.refresh(engine);
+
             if let Some(comp_info) = &mut self.current_components {
                 let mut dirty = false;
 
-                dirty = dirty || draw_generic_component(ui, engine, "Name", comp_info.name_component.fields());
+                dirty = dirty || draw_generic_component(ctx, ui, engine, entity, "Name", comp_info.name_component.fields());
                 if let Some(ctransform) = &mut comp_info.transform_component {
                     ui.separator();
-                    dirty = dirty || draw_generic_component(ui, engine, "Transform", ctransform.fields());
+                    dirty = dirty || draw_generic_component(ctx, ui, engine, entity, "Transform", ctransform.fields());
                 }
                 if let Some(cmodel) = &mut comp_info.model_component {
                     ui.separator();
-                    dirty = dirty || draw_generic_component(ui, engine, "Model", cmodel.fields());
+                    dirty = dirty || draw_generic_component(ctx, ui, engine, entity, "Model", cmodel.fields());
                 }
 
                 ui.separator();
@@ -63,64 +65,82 @@ impl super::Widget for Inspector {
 
                 if dirty {
                     engine.current_scene.entity_upload_component_list(entity, comp_info.clone());
-                    self.refresh(engine);
                 }
             }
         }
     }
 }
 
-fn draw_generic_component<S: Into<String>>(ui: &mut egui::Ui, engine: &mut crate::EngineInternals, name: S, fields: BTreeMap<String, Value>) -> bool {
+fn draw_generic_component<S: Into<String>>(ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals, entity: Entity, name: S, fields: BTreeMap<String, (bool, Value)>) -> bool {
     let name = name.into();
 
     let mut dirty = false;
 
     ui.label(egui::RichText::new(&name).strong());
     egui::Grid::new(format!("inspector_comp_generic_{}", &name)).num_columns(2).show(ui, |ui| {
-        for (k, v) in fields {
+        for (k, (interactive, v)) in fields {
+            let field_name = k.clone();
             ui.label(k);
-            let responses = match v {
-                Value::String(s) => vec![ui.text_edit_singleline(s)],
-                Value::PrimF32(f) => vec![ui.add(egui::DragValue::new(f))],
-                
-                Value::PrimU8(f) => vec![ui.add(egui::DragValue::new(f))],
-                Value::PrimU16(f) => vec![ui.add(egui::DragValue::new(f))],
-                Value::PrimU32(f) => vec![ui.add(egui::DragValue::new(f))],
-                Value::PrimU64(f) => vec![ui.add(egui::DragValue::new(f))],
+            ui.add_enabled_ui(interactive, |ui| {
+                let responses = match v {
+                    Value::String(s) => vec![ui.text_edit_singleline(s)],
+                    Value::Bool(b) => vec![ui.checkbox(b, String::new())],
 
-                Value::Vec2(x, y) => {
-                    let mut responses = Vec::new();
-                    ui.columns(2, |columns| {
-                        responses.push(columns[0].add(egui::DragValue::new(x)));
-                        responses.push(columns[1].add(egui::DragValue::new(y)));
-                    });
-                    responses
-                },
-                Value::Vec3(x, y, z) => {
-                    let mut responses = Vec::new();
-                    ui.columns(3, |columns| {
-                        responses.push(columns[0].add(egui::DragValue::new(x)));
-                        responses.push(columns[1].add(egui::DragValue::new(y)));
-                        responses.push(columns[2].add(egui::DragValue::new(z)));
-                    });
-                    responses
-                },
-                Value::Vec4(x, y, z, w) => {
-                    let mut responses = Vec::new();
-                    ui.columns(4, |columns| {
-                        responses.push(columns[0].add(egui::DragValue::new(x)));
-                        responses.push(columns[1].add(egui::DragValue::new(y)));
-                        responses.push(columns[2].add(egui::DragValue::new(z)));
-                        responses.push(columns[3].add(egui::DragValue::new(w)));
-                    });
-                    responses
-                },
-                _ => unimplemented!(),
-            };
+                    Value::PrimF32(f) => vec![ui.add(egui::DragValue::new(f))],
 
-            for resp in responses {
-                dirty = dirty || resp.lost_focus() || resp.changed();
-            }
+                    Value::PrimU8(f) => vec![ui.add(egui::DragValue::new(f))],
+                    Value::PrimU16(f) => vec![ui.add(egui::DragValue::new(f))],
+                    Value::PrimU32(f) => vec![ui.add(egui::DragValue::new(f))],
+                    Value::PrimU64(f) => vec![ui.add(egui::DragValue::new(f))],
+
+                    Value::Vec2(x, y) => {
+                        let mut responses = Vec::new();
+                        ui.columns(2, |columns| {
+                            responses.push(columns[0].add(egui::DragValue::new(x)));
+                            responses.push(columns[1].add(egui::DragValue::new(y)));
+                        });
+                        responses
+                    },
+                    Value::Vec3(x, y, z) => {
+                        let mut responses = Vec::new();
+                        ui.columns(3, |columns| {
+                            responses.push(columns[0].add(egui::DragValue::new(x)));
+                            responses.push(columns[1].add(egui::DragValue::new(y)));
+                            responses.push(columns[2].add(egui::DragValue::new(z)));
+                        });
+                        responses
+                    },
+                    Value::Vec4(x, y, z, w) => {
+                        let mut responses = Vec::new();
+                        ui.columns(4, |columns| {
+                            responses.push(columns[0].add(egui::DragValue::new(x)));
+                            responses.push(columns[1].add(egui::DragValue::new(y)));
+                            responses.push(columns[2].add(egui::DragValue::new(z)));
+                            responses.push(columns[3].add(egui::DragValue::new(w)));
+                        });
+                        responses
+                    },
+
+                    Value::ModelReference(model) => {
+                        let mut model_name = match model {
+                            Some(model_ref) => model_ref.name.clone(),
+                            None => "None (click to select)".to_string(),
+                        };
+                        let resp = ui.add(egui::TextEdit::singleline(&mut model_name));
+                        if resp.clicked() {
+                            resp.surrender_focus();
+                            ctx.add_widget(Box::new(super::ModelSelector::new(entity, name.clone(), field_name)), super::DockLoc::Floating);
+                            dirty = true;
+                        }
+                        Vec::new()
+                    },
+                    _ => unimplemented!(),
+                };
+
+                for resp in responses {
+                    dirty = dirty || resp.lost_focus() || resp.changed();
+                }
+            });
 
             ui.end_row();
         }

@@ -25,6 +25,9 @@ pub use resource_loader::*;
 mod resource_inspector;
 pub use resource_inspector::*;
 
+mod model_selector;
+pub use model_selector::*;
+
 pub trait Widget {
     fn title(&self) -> String;
     fn resizable(&self) -> bool { true }

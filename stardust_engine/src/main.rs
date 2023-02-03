@@ -4,6 +4,7 @@ use std::time::Instant;
 use std::collections::VecDeque;
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use rayon::prelude::*;
 use foxtail::prelude::*;
@@ -11,6 +12,7 @@ use foxtail::prelude::*;
 use stardust_common::camera::Camera;
 use stardust_common::math::*;
 use stardust_ecs::prelude::*;
+use stardust_world::GpuModel;
 
 pub mod renderer;
 pub mod widgets;
@@ -160,8 +162,6 @@ impl App for Engine {
     }
 
     fn update(&mut self, ctx: &mut Context) {
-        use rand::RngCore;
-
         let now = Instant::now();
         let elapsed = now - self.last_frame;
         self.delta_s = elapsed.as_secs_f32();
@@ -175,69 +175,20 @@ impl App for Engine {
 
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
-        // Add random voxels to the world
-        // (0..256).into_par_iter().for_each(|_| {
-        //     let mut rng = rand::thread_rng();
-        //     let x = (rng.next_u32() % 16384) / 64 + 1024;
-        //     let y = (rng.next_u32() % 16384) / 64 + 1024;
-        //     let z = (rng.next_u32() % 16384) / 64 + 1024;
-        //     let r = (rng.next_u32() % 255) as u8;
-        //     let g = (rng.next_u32() % 255) as u8;
-        //     let b = (rng.next_u32() % 255) as u8;
-        //     let v = stardust_common::voxel::Voxel::new([r,g,b], 255, 0, false, 255);
-        //     let p = uvec3(x as u32 + 256,y as u32,z as u32);
-        //     self.internals.world.set_voxel(v, p);
-        // });
-        // let r = ((self.internals.frame_counter as f32) / 8f32).sin() * 8f32 + 24f32;
-        // let r2 = (r * r) as i16;
-        // (0..128).into_par_iter().for_each(|x| {
-        //     for y in 0..128 {
-        //         for z in 0..128 {
-        //             let cx = (x % 16) as u8;
-        //             let cy = (y % 16) as u8;
-        //             let c = [cx * 16, cy * 16, 255];
-        //             let ox = x as i16 - 64;
-        //             let oy = y as i16 - 64;
-        //             let oz = z as i16 - 64;
-        //             let v = if ox * ox + oy * oy + oz * oz > r2 {
-        //                 stardust_common::voxel::Voxel::empty()
-        //             } else {
-        //                 stardust_common::voxel::Voxel::new(c, 255, 0, false, 255)
-        //             };
-        //             self.internals.world.set_voxel(v, uvec3(x+1024,y+1024,z+1024));
-        //         }
-        //     }
-        // });
-
         if self.internals.world.gpu_models.len() == 0 {
             match self.internals.resources.fetch_model("models/monu10.sdvx") {
                 Ok(model) => {
-                    let gpu_model = stardust_world::GpuModel::from_model(ctx, model);
+                    let gpu_model = stardust_world::GpuModel::from_model(ctx, String::from("models/monu10.sdvx"), model);
                     let gpu_model = std::sync::Arc::new(gpu_model);
                     self.internals.world.register_model(std::sync::Arc::clone(&gpu_model));
-                    // self.internals.world.register_model(std::sync::Arc::clone(&gpu_model));
-                    // self.internals.world.register_model(std::sync::Arc::clone(&gpu_model));
                 },
                 Err(_) => {},
             }
-
-            // let mut voxels = Vec::new();
-            // for x in 0..16 {
-            //     for y in 0..16 {
-            //         for z in 0..16 {
-            //             let p = uvec3(x, y, z);
-            //             let v = stardust_common::voxel::Voxel::new([255; 3], 255, 0, false, 255);
-            //             voxels.push((v, p));
-            //             // self.internals.world.set_voxel(v, p);
-            //         }
-            //     }
-            // }
-            // let model = stardust_sdvx::Model::from_voxels(voxels);
-            // let gpu_model = stardust_world::GpuModel::from_model(ctx, &model);
-            // self.internals.world.register_model(std::sync::Arc::new(gpu_model));
         }
 
         self.internals.current_scene.update(self.internals.delta_s);
+
+        self.internals.current_scene.update_dirty_models(&self.internals.world);
     }
 
     fn render(&mut self, ctx: &mut Context) {
