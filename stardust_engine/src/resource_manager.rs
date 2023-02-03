@@ -43,7 +43,7 @@ impl ResourceManager {
 
             request_refresh: true,
             requested_resources: Vec::new(),
-            request_overwrite: false,
+            request_overwrite: true,
 
             read_errors: HashMap::new(),
             resource_info: HashMap::new(),
@@ -51,7 +51,7 @@ impl ResourceManager {
         }
     }
 
-    pub fn load_model(&mut self, path: &str) {
+    pub fn load_model(&mut self, path: &str, ctx: &foxtail::Context, world: &mut stardust_world::World) {
         if self.models.contains_key(path) && self.request_overwrite == false { return; } // Already loaded
         match self.vfs.open_file(path) {
             Err(e) => { self.read_errors.insert(path.to_string(), Rc::new(e.into())); },
@@ -64,16 +64,25 @@ impl ResourceManager {
                 drop(file);
 
                 match Model::from_bytes(&bytes) {
-                    Err(e) => { self.read_errors.insert(path.to_string(), Rc::new(e.into())); },
+                    Err(e) => {
+                        self.read_errors.insert(path.to_string(), Rc::new(e.into()));
+                        return;
+                    },
                     Ok(model) => {
                         self.models.insert(path.to_string(), Rc::new(model));
                     }
                 }
             },
         }
+
+        if let Ok(model) = self.fetch_model(path) {
+            let gpu_model = stardust_world::GpuModel::from_model(ctx, path.to_string(), model);
+            let gpu_model = std::sync::Arc::new(gpu_model);
+            world.register_model(std::sync::Arc::clone(&gpu_model));
+        }
     }
 
-    pub fn load_resource(&mut self, path: &str) {
+    pub fn load_resource(&mut self, path: &str, ctx: &foxtail::Context, world: &mut stardust_world::World) {
         let mut extension = path.rsplit("/").next().unwrap_or("").rsplit(".").next().unwrap_or("");
         let mut path_wo_ext = path.to_string();
         if extension == path.rsplit("/").next().unwrap_or("") {
@@ -84,7 +93,7 @@ impl ResourceManager {
             }
         }
         match extension {
-            "sdvx" => self.load_model(path),
+            "sdvx" => self.load_model(path, ctx, world),
             "vox" => {
                 // TODO: Check if path already exists? Also use overwrite here
                 match self.vfs.open_file(path) {
@@ -109,7 +118,7 @@ impl ResourceManager {
                                             if let Err(e) = file.write_all(&bytes) {
                                                 error!("Error writing path: {}", e);
                                             }
-                                            self.load_resource(&sdvx_path);
+                                            self.load_resource(&sdvx_path, ctx, world);
                                             self.resource_info.insert(path.to_string(), format!("File was used to generate {}", sdvx_path));
                                         },
                                     },
@@ -137,9 +146,9 @@ impl ResourceManager {
         }
     }
 
-    pub fn load_next_resource(&mut self) {
+    pub fn load_next_resource(&mut self, ctx: &foxtail::Context, world: &mut stardust_world::World) {
         if self.requested_resources.len() > 0 {
-            self.load_resource(&self.requested_resources[0].clone());
+            self.load_resource(&self.requested_resources[0].clone(), ctx, world);
             self.requested_resources.remove(0);
         } else {
             // Just to make sure

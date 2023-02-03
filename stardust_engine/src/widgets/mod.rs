@@ -33,7 +33,10 @@ pub trait Widget {
     fn resizable(&self) -> bool { true }
     fn closable(&self) -> bool { true }
     fn update_open_status(&self, _open: &mut bool) {}
-    fn draw(&mut self, ctx: &mut WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals);
+    fn draw(&mut self, ctx: &mut WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {}
+    fn draw_with_ctx(&mut self, wctx: &mut WidgetContext, ctx: &foxtail::Context, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
+        self.draw(wctx, ui, engine)
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -136,7 +139,7 @@ impl WidgetManager {
         }
     }
 
-    pub fn draw_floating(&mut self, ctx: &egui::Context, engine: &mut crate::EngineInternals) {
+    pub fn draw_floating(&mut self, fctx: &foxtail::Context, ctx: &egui::Context, engine: &mut crate::EngineInternals) {
         let mut wctx = WidgetContext::new();
 
         for floating_widget in &mut self.floating_widgets {
@@ -147,7 +150,7 @@ impl WidgetManager {
                 builder = builder.open(&mut floating_widget.open);
             }
             builder.resizable(floating_widget.widget.resizable()).show(ctx, |ui| {
-                floating_widget.widget.draw(&mut wctx, ui, engine);
+                floating_widget.widget.draw_with_ctx(&mut wctx, fctx, ui, engine);
             });
         }
 
@@ -158,7 +161,7 @@ impl WidgetManager {
         }
     }
 
-    pub fn draw_docked(&mut self, ctx: &egui::Context, engine: &mut crate::EngineInternals) {
+    pub fn draw_docked(&mut self, fctx: &foxtail::Context, ctx: &egui::Context, engine: &mut crate::EngineInternals) {
         let mut wctx = WidgetContext::new();
 
         // Menubar
@@ -189,7 +192,7 @@ impl WidgetManager {
                             ui.vertical(|ui| {
                                 ui.heading(docked_widget.widget.title());
                                 ui.separator();
-                                docked_widget.widget.draw(&mut wctx, ui, engine);
+                                docked_widget.widget.draw_with_ctx(&mut wctx, fctx, ui, engine);
                                 ui.separator();
                             });
                             ui.end_row();
@@ -207,7 +210,7 @@ impl WidgetManager {
                             ui.vertical(|ui| {
                                 ui.heading(docked_widget.widget.title());
                                 ui.separator();
-                                docked_widget.widget.draw(&mut wctx, ui, engine);
+                                docked_widget.widget.draw_with_ctx(&mut wctx, fctx, ui, engine);
                                 ui.separator();
                             });
                             ui.end_row();
@@ -226,7 +229,7 @@ impl WidgetManager {
                 });
                 ui.separator();
                 if let Some(widget) = self.bottom_docked_widgets.get_mut(self.active_bottom_docked_widget) {
-                    widget.widget.draw(&mut wctx, ui, engine);
+                    widget.widget.draw_with_ctx(&mut wctx, fctx, ui, engine);
                 } else {
                     self.active_bottom_docked_widget = 0;
                 }
@@ -237,7 +240,7 @@ impl WidgetManager {
             egui::TopBottomPanel::top("docked_top").resizable(false).show(ctx, |ui| {
                 for docked_widget in &mut self.top_docked_widgets {
                     ui.horizontal_centered(|ui| {
-                        docked_widget.widget.draw(&mut wctx, ui, engine);
+                        docked_widget.widget.draw_with_ctx(&mut wctx, fctx, ui, engine);
                     });
                     ui.separator();
                 }

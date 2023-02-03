@@ -176,7 +176,7 @@ impl World {
 
                         self.voxel_queue_gpu.bind(0);
                         unsafe {
-                            ctx.gl.bind_buffer_base(foxtail::glow::SHADER_STORAGE_BUFFER, 1, Some(self.gpu_models[i].vox_buf.buf()));
+                            ctx.gl.bind_buffer_base(foxtail::glow::SHADER_STORAGE_BUFFER, 1, Some(model.vox_buf.buf()));
                         }
 
                         self.cs_place_model.set_uniforms(|uni| {

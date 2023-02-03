@@ -175,17 +175,6 @@ impl App for Engine {
 
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
-        if self.internals.world.gpu_models.len() == 0 {
-            match self.internals.resources.fetch_model("models/monu10.sdvx") {
-                Ok(model) => {
-                    let gpu_model = stardust_world::GpuModel::from_model(ctx, String::from("models/monu10.sdvx"), model);
-                    let gpu_model = std::sync::Arc::new(gpu_model);
-                    self.internals.world.register_model(std::sync::Arc::clone(&gpu_model));
-                },
-                Err(_) => {},
-            }
-        }
-
         self.internals.current_scene.update(self.internals.delta_s);
 
         self.internals.current_scene.update_dirty_models(&self.internals.world);
@@ -224,10 +213,10 @@ impl App for Engine {
 
         ctx.draw_ui(|egui_ctx| {
             // Draw docked widgets
-            self.widgets.draw_docked(egui_ctx, &mut self.internals);
+            self.widgets.draw_docked(ctx, egui_ctx, &mut self.internals);
 
             // Draw floating windows
-            self.widgets.draw_floating(egui_ctx, &mut self.internals);
+            self.widgets.draw_floating(ctx, egui_ctx, &mut self.internals);
 
             let available_rect = egui_ctx.available_rect();
             let available_size = (

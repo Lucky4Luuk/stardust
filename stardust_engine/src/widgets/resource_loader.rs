@@ -26,7 +26,7 @@ impl super::Widget for ResourceLoader {
         if self.done { *open = false; }
     }
 
-    fn draw(&mut self, ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
+    fn draw_with_ctx(&mut self, wctx: &mut super::WidgetContext, ctx: &foxtail::Context, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
         if engine.resources.requested_resources.len() > 0 {
             let loading = engine.resources.requested_resources.first().unwrap();
             let progress = (engine.resources.requested_resources.len() as f32) / (self.to_load as f32);
@@ -38,7 +38,7 @@ impl super::Widget for ResourceLoader {
                 });
             });
 
-            engine.resources.load_next_resource();
+            engine.resources.load_next_resource(ctx, &mut engine.world);
         } else {
             self.done = true;
         }
