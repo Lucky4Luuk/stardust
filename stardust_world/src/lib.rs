@@ -168,7 +168,9 @@ impl World {
                     let (ref_model, ref_prev, ref_new) = &self.model_queue.lock().unwrap()[i];
                     (Arc::clone(ref_model), *ref_prev, *ref_new)
                 };
-                for j in 0..2 {
+                // n can be used here to only delete models
+                let n = if prev == new { 1 } else { 2 };
+                for j in 0..n {
                     let mut offset = 0;
                     let count = model.voxels;
                     'process: loop {

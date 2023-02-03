@@ -32,9 +32,9 @@ impl CompTransform {
 
     pub fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
         let mut map = BTreeMap::new();
-        map.insert(String::from("Pos"), (true, Value::Vec3(&mut self.position.x, &mut self.position.y, &mut self.position.z)));
-        map.insert(String::from("Rot"), (true, Value::Vec4(&mut self.rotation_x, &mut self.rotation_y, &mut self.rotation_z, &mut self.rotation_w)));
-        map.insert(String::from("Scl"), (true, Value::Vec3(&mut self.scale.x, &mut self.scale.y, &mut self.scale.z)));
+        map.insert(String::from("pos"), (true, Value::Vec3(&mut self.position.x, &mut self.position.y, &mut self.position.z)));
+        map.insert(String::from("rot"), (true, Value::Vec4(&mut self.rotation_x, &mut self.rotation_y, &mut self.rotation_z, &mut self.rotation_w)));
+        map.insert(String::from("scl"), (true, Value::Vec3(&mut self.scale.x, &mut self.scale.y, &mut self.scale.z)));
         map
     }
 }

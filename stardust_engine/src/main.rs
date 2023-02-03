@@ -95,22 +95,6 @@ impl Engine {
 
         obj.widgets.add_widget(Box::new(PerfDebug), DockLoc::Floating);
 
-        let voxels: Vec<(stardust_common::voxel::Voxel, UVec3)> = (0..=15).into_par_iter().map(|x| {
-            let mut voxels = Vec::new();
-            for y in 0..=15 {
-                for z in 0..=15 {
-                    let v = stardust_common::voxel::Voxel::new([x,y,z], 255, 0, false, 255);
-                    let p = uvec3(x as u32 + 1024 + 256,y as u32 + 1024,z as u32 + 1024);
-                    voxels.push((v, p));
-                }
-            }
-            voxels
-        }).flatten().collect();
-        voxels.into_iter().for_each(|(v, p)| {
-            obj.internals.world.set_voxel(v, p);
-        });
-        obj.internals.world.process(ctx);
-
         obj
     }
 }
@@ -176,7 +160,6 @@ impl App for Engine {
         self.camera.rotation = Quat::from_rotation_y(self.cam_rot_y);
 
         self.internals.current_scene.update(self.internals.delta_s);
-
         self.internals.current_scene.update_dirty_models(&self.internals.world);
     }
 

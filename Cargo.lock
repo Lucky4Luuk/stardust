@@ -1784,6 +1784,7 @@ dependencies = [
  "stardust_common",
  "stardust_sdvx",
  "stardust_world",
+ "thiserror",
 ]
 
 [[package]]

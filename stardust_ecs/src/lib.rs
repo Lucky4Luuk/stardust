@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use stardust_common::math::*;
-use stardust_world::GpuModel;
+
+mod fields;
+pub use fields::*;
 
 mod transform;
 pub use transform::*;
@@ -15,31 +17,11 @@ pub use model::*;
 
 pub mod prelude;
 
-pub enum Value<'a> {
-    // Primitives
-    String(&'a mut String),
-    Bool(&'a mut bool),
-
-    PrimF32(&'a mut f32),
-
-    PrimU8(&'a mut u32),
-    PrimU16(&'a mut u32),
-    PrimU32(&'a mut u32),
-    PrimU64(&'a mut u32),
-
-    Vec2(&'a mut f32, &'a mut f32),
-    Vec3(&'a mut f32, &'a mut f32, &'a mut f32),
-    Vec4(&'a mut f32, &'a mut f32, &'a mut f32, &'a mut f32),
-
-    // Complex values
-    ModelReference(&'a mut Option<Arc<GpuModel>>),
-}
-
 #[derive(Debug, Component, Clone)]
 #[storage(VecStorage)]
 pub struct CompName(pub String);
-impl CompName {
-    pub fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
+impl EngineComponent for CompName {
+    fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
         let mut map = BTreeMap::new();
         map.insert(String::from("Name"), (true, Value::String(&mut self.0)));
         map
