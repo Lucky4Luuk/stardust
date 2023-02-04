@@ -42,28 +42,10 @@ impl super::Widget for ModelSelector {
                     }
                     if ui.button(name).clicked() {
                         let mut comp_info = engine.current_scene.entity_component_list(self.entity);
-                        let fields = match self.comp_name.as_str() {
-                            "Model" => {
-                                if let Some(cmodel) = &mut comp_info.model_component {
-                                    cmodel.dirty = true;
-                                    Some(cmodel.fields())
-                                } else {
-                                    None
-                                }
-                            },
-                            _ => None,
-                        };
-                        if let Some(mut fields) = fields {
-                            if let Some((_, field)) = fields.get_mut(&self.field_name){
-                                match field {
-                                    Value::ModelReference(model_ref) => {
-                                        **model_ref = Some(Arc::clone(model));
-                                    },
-                                    _ => {},
-                                }
-                            }
+                        if let Some(comp) = comp_info.components.get_mut(&self.comp_name) {
+                            comp.set_field(&self.field_name, ValueOwned::ModelReference(Some(Arc::clone(model)))).unwrap();
+                            engine.current_scene.entity_upload_component_list(self.entity, &comp_info);
                         }
-                        engine.current_scene.entity_upload_component_list(self.entity, comp_info);
                         self.close = true;
                     }
                     if i % 2 == 1 {

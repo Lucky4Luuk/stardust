@@ -31,32 +31,6 @@ impl CompModel {
         }
     }
 
-    pub fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
-        let mut map = BTreeMap::new();
-        map.insert("model".to_string(), (true, Value::ModelReference(&mut self.model_ref)));
-        map.insert("dirty".to_string(), (false, Value::Bool(&mut self.dirty)));
-        map
-    }
-
-    pub fn set_field(&mut self, name: &str, value: ValueOwned) -> Result<(), FieldError> {
-        let mut fields = self.fields();
-        if let Some((_, value_ref)) = fields.get_mut(name) {
-            match value {
-                ValueOwned::ModelReference(model_owned) => {
-                    if let Value::ModelReference(model_ref) = value_ref {
-                        **model_ref = model_owned;
-                        Ok(())
-                    } else {
-                        Err(FieldError::FieldHasWrongValue)
-                    }
-                },
-                _ => Err(FieldError::FieldValueUnsupported),
-            }
-        } else {
-            Err(FieldError::FieldDoesNotExist)
-        }
-    }
-
     /// Returns true if the new location is different to the current position
     pub fn update_voxel_position(&mut self, new_vox_pos: UVec3) {
         if self.vox_pos == new_vox_pos { return; }
@@ -64,5 +38,34 @@ impl CompModel {
         self.prev_vox_pos = self.vox_pos;
         self.vox_pos = new_vox_pos;
         self.dirty = true;
+    }
+}
+
+impl crate::EngineComponent for CompModel {
+    fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
+        let mut map = BTreeMap::new();
+        map.insert("model".to_string(), (true, Value::ModelReference(&mut self.model_ref)));
+        map.insert("dirty".to_string(), (false, Value::Bool(&mut self.dirty)));
+        map
+    }
+
+    fn set_field(&mut self, name: &str, value: ValueOwned) -> Result<(), FieldError> {
+        let mut fields = self.fields();
+        match name {
+            // Special case for this component
+            "model" => if let ValueOwned::ModelReference(model_owned) = value {
+                // self.next_model = model_owned;
+                self.model_ref = model_owned;
+                self.dirty = true;
+                Ok(())
+            } else {
+                Err(FieldError::FieldHasWrongValue)
+            },
+            _ => if let Some((_, value_ref)) = fields.get_mut(name) {
+                value_ref.set_from_owned(value)
+            } else {
+                Err(FieldError::FieldDoesNotExist)
+            },
+        }
     }
 }

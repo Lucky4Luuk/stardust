@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
+use specs::prelude::*;
 use stardust_world::GpuModel;
 
 #[derive(Debug, Error)]
@@ -135,7 +136,22 @@ impl<'a> Value<'a> {
     }
 }
 
-pub trait EngineComponent {
+pub trait EngineComponentWritable {
+    fn write(&self, world: &mut World, entity: Entity);
+}
+
+impl<T: Component + Clone> EngineComponentWritable for T {
+    fn write(&self, world: &mut World, entity: Entity) {
+        let mut storage = world.write_storage::<Self>();
+        if let Some(comp) = storage.get_mut(entity) {
+            *comp = self.clone();
+        } else {
+            storage.insert(entity, self.clone()).expect("Failed to add component!");
+        }
+    }
+}
+
+pub trait EngineComponent: EngineComponentWritable {
     fn fields(&mut self) -> BTreeMap<String, (bool, Value)>;
     fn set_field(&mut self, name: &str, value: ValueOwned) -> Result<(), FieldError> {
         let mut fields = self.fields();

@@ -29,8 +29,10 @@ impl CompTransform {
             scale: vec3(0.0, 0.0, 0.0),
         }
     }
+}
 
-    pub fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
+impl crate::EngineComponent for CompTransform {
+    fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
         let mut map = BTreeMap::new();
         map.insert(String::from("pos"), (true, Value::Vec3(&mut self.position.x, &mut self.position.y, &mut self.position.z)));
         map.insert(String::from("rot"), (true, Value::Vec4(&mut self.rotation_x, &mut self.rotation_y, &mut self.rotation_z, &mut self.rotation_w)));

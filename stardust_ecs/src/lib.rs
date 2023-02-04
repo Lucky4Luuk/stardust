@@ -52,12 +52,9 @@ pub struct EntityInfo {
     pub kind: EntityType,
 }
 
-#[derive(Clone)]
 pub struct EntityComponentInfo {
     pub entity: Entity,
-    pub name_component: CompName,
-    pub transform_component: Option<CompTransform>,
-    pub model_component: Option<CompModel>,
+    pub components: BTreeMap<String, Box<dyn EngineComponent>>,
 }
 
 pub struct Scene {
@@ -130,40 +127,56 @@ impl Scene {
         let transform_storage = self.world.read_storage::<CompTransform>();
         let model_storage = self.world.read_storage::<CompModel>();
 
+        let mut components: BTreeMap<String, Box<dyn EngineComponent>> = BTreeMap::new();
+
+        if let Some(comp) = name_storage.get(entity) {
+            components.insert(String::from("Name"), Box::new(comp.clone()));
+        }
+
+        if let Some(comp) = transform_storage.get(entity) {
+            components.insert(String::from("Transform"), Box::new(comp.clone()));
+        }
+
+        if let Some(comp) = model_storage.get(entity) {
+            components.insert(String::from("Model"), Box::new(comp.clone()));
+        }
+
         EntityComponentInfo {
-            entity: entity,
-            name_component: name_storage.get(entity).unwrap().clone(),
-            transform_component: transform_storage.get(entity).map(|c| c.clone()),
-            model_component: model_storage.get(entity).map(|c| c.clone()),
+            entity,
+            components,
         }
     }
 
     // TODO: Check if entity is still alive
     // TODO: Optimise this function, seems like it won't scale very well
-    pub fn entity_upload_component_list(&mut self, entity: Entity, comp_info: EntityComponentInfo) {
+    pub fn entity_upload_component_list(&mut self, entity: Entity, comp_info: &EntityComponentInfo) {
         // Storages for each component
-        let mut name_storage = self.world.write_storage::<CompName>();
-        let mut transform_storage = self.world.write_storage::<CompTransform>();
-        let mut model_storage = self.world.write_storage::<CompModel>();
+        // let mut name_storage = self.world.write_storage::<CompName>();
+        // let mut transform_storage = self.world.write_storage::<CompTransform>();
+        // let mut model_storage = self.world.write_storage::<CompModel>();
+        //
+        // if let Some(cname) = name_storage.get_mut(entity) {
+        //     cname.0 = comp_info.name_component.0;
+        // }
+        //
+        // if let Some(ctransform) = comp_info.transform_component {
+        //     if let Some(cur_ctransform) = transform_storage.get_mut(entity) {
+        //         *cur_ctransform = ctransform;
+        //     } else {
+        //         transform_storage.insert(entity, ctransform).expect("Failed to add component!");
+        //     }
+        // }
+        //
+        // if let Some(cmodel) = comp_info.model_component {
+        //     if let Some(cur_cmodel) = model_storage.get_mut(entity) {
+        //         *cur_cmodel = cmodel;
+        //     } else {
+        //         model_storage.insert(entity, cmodel).expect("Failed to add component!");
+        //     }
+        // }
 
-        if let Some(cname) = name_storage.get_mut(entity) {
-            cname.0 = comp_info.name_component.0;
-        }
-
-        if let Some(ctransform) = comp_info.transform_component {
-            if let Some(cur_ctransform) = transform_storage.get_mut(entity) {
-                *cur_ctransform = ctransform;
-            } else {
-                transform_storage.insert(entity, ctransform).expect("Failed to add component!");
-            }
-        }
-
-        if let Some(cmodel) = comp_info.model_component {
-            if let Some(cur_cmodel) = model_storage.get_mut(entity) {
-                *cur_cmodel = cmodel;
-            } else {
-                model_storage.insert(entity, cmodel).expect("Failed to add component!");
-            }
+        for (_name, component) in &comp_info.components {
+            component.write(&mut self.world, comp_info.entity);
         }
     }
 }

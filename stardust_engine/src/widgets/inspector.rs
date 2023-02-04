@@ -40,31 +40,33 @@ impl super::Widget for Inspector {
             if let Some(comp_info) = &mut self.current_components {
                 let mut dirty = false;
 
-                dirty = dirty || draw_generic_component(ctx, ui, engine, entity, "Name", comp_info.name_component.fields());
-                if let Some(ctransform) = &mut comp_info.transform_component {
-                    ui.separator();
-                    dirty = dirty || draw_generic_component(ctx, ui, engine, entity, "Transform", ctransform.fields());
-                }
-                if let Some(cmodel) = &mut comp_info.model_component {
-                    ui.separator();
-                    dirty = dirty || draw_generic_component(ctx, ui, engine, entity, "Model", cmodel.fields());
+                let mut first = true;
+                for (name, comp) in &mut comp_info.components {
+                    let fields = comp.fields();
+                    if !first { ui.separator(); }
+                    first = false;
+                    dirty = dirty || draw_generic_component(ctx, ui, engine, entity, name, fields);
                 }
 
                 ui.separator();
                 ui.menu_button("Add component", |menu| {
                     if menu.button("Transform").clicked() {
-                        comp_info.transform_component = Some(CompTransform::new());
-                        dirty = true;
+                        if !comp_info.components.contains_key("Transform") {
+                            comp_info.components.insert("Transform".to_string(), Box::new(CompTransform::new()));
+                            dirty = true;
+                        }
                     }
 
                     if menu.button("Model").clicked() {
-                        comp_info.model_component = Some(CompModel::new());
-                        dirty = true;
+                        if !comp_info.components.contains_key("Model") {
+                            comp_info.components.insert("Model".to_string(), Box::new(CompModel::new()));
+                            dirty = true;
+                        }
                     }
                 });
 
                 if dirty {
-                    engine.current_scene.entity_upload_component_list(entity, comp_info.clone());
+                    engine.current_scene.entity_upload_component_list(entity, &comp_info);
                 }
             }
         }
