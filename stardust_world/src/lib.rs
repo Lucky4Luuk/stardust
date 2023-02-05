@@ -28,7 +28,7 @@ pub struct World {
     voxel_queue: Arc<Mutex<Vec<(Voxel, UVec3)>>>,
     voxel_queue_gpu: FixedSizeBuffer<[u32; 4]>,
 
-    model_queue: Arc<Mutex<Vec<(Arc<GpuModel>, UVec3, UVec3)>>>,
+    model_queue: Arc<Mutex<Vec<(Arc<GpuModel>, UVec3, UVec3, bool)>>>,
 
     brick_pool_counter: AtomicCounter,
     layer0_pool_counter: AtomicCounter,
@@ -106,10 +106,10 @@ impl World {
         lock.push((voxel, world_pos));
     }
 
-    pub fn update_model(&self, model: Arc<GpuModel>, old_pos: UVec3, new_pos: UVec3) {
+    pub fn update_model(&self, model: Arc<GpuModel>, old_pos: UVec3, new_pos: UVec3, remove_only: bool) {
         puffin::profile_function!();
         let mut lock = self.model_queue.lock().unwrap();
-        lock.push((model, old_pos, new_pos));
+        lock.push((model, old_pos, new_pos, remove_only));
     }
 
     /// Registers a model living in GPU memory. Arc<T> so you can keep a reference to it!
@@ -164,11 +164,12 @@ impl World {
         {
             puffin::profile_scope!("process_gpu_models");
             for i in 0..self.models_queued {
-                let (model, prev, new) = {
-                    let (ref_model, ref_prev, ref_new) = &self.model_queue.lock().unwrap()[i];
-                    (Arc::clone(ref_model), *ref_prev, *ref_new)
+                let (model, prev, new, remove_only) = {
+                    let (ref_model, ref_prev, ref_new, ref_remove) = &self.model_queue.lock().unwrap()[i];
+                    (Arc::clone(ref_model), *ref_prev, *ref_new, *ref_remove)
                 };
-                for j in 0..2 {
+                let n = if remove_only { 1 } else { 2 };
+                for j in 0..n {
                     let mut offset = 0;
                     let count = model.voxels;
                     'process: loop {

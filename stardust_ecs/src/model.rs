@@ -32,12 +32,17 @@ impl CompModel {
     }
 
     /// Returns true if the new location is different to the current position
-    pub fn update_voxel_position(&mut self, new_vox_pos: UVec3) {
+    pub(crate) fn update_voxel_position(&mut self, new_vox_pos: UVec3) {
         if self.vox_pos == new_vox_pos { return; }
 
         self.prev_vox_pos = self.vox_pos;
         self.vox_pos = new_vox_pos;
         self.dirty = true;
+    }
+
+    pub(crate) fn update_model_ref(&mut self) {
+        self.model_ref = self.next_model.clone();
+        self.next_model = None;
     }
 }
 
@@ -54,8 +59,8 @@ impl crate::EngineComponent for CompModel {
         match name {
             // Special case for this component
             "model" => if let ValueOwned::ModelReference(model_owned) = value {
-                // self.next_model = model_owned;
-                self.model_ref = model_owned;
+                self.next_model = model_owned;
+                // self.model_ref = model_owned;
                 self.dirty = true;
                 Ok(())
             } else {
