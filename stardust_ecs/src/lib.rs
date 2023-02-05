@@ -16,6 +16,7 @@ pub use model::*;
 
 pub mod prelude;
 
+/// Use shift_remove to remove components!
 pub type ComponentMap = IndexMap<String, Box<dyn EngineComponent>>;
 
 #[derive(Debug, Component, Clone)]

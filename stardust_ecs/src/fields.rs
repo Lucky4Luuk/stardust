@@ -5,7 +5,7 @@ use specs::prelude::*;
 use indexmap::IndexMap;
 use stardust_world::GpuModel;
 
-// pub type FieldMap<'a> = BTreeMap<String, (bool, Value<'a>)>;
+/// Use shift_remove to remove fields!
 pub type FieldMap<'a> = IndexMap<String, (bool, Value<'a>)>;
 
 #[derive(Debug, Error)]
