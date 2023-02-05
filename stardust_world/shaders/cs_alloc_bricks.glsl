@@ -1,4 +1,4 @@
-#version 450
+#version 460
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 #define BRICK_MAP_SIZE 64
@@ -33,15 +33,16 @@ layout(std430, binding = 3) buffer voxel_queue {
     uvec4 voxels[];
 };
 
-layout(binding = 4) uniform atomic_uint brick_pool_counter;
-layout(binding = 5) uniform atomic_uint layer0_pool_counter;
+layout(std430, binding = 4) buffer free_brick_pool {
+    uint free_brick_indices[];
+};
 
-void setVoxel(ivec3 pos, uint voxel, uint brick_pool_idx) {
-    ivec3 local_pos = ivec3(pos);
-    int voxel_idx = local_pos.x + local_pos.y * 16 + local_pos.z * 16 * 16;
-    if (voxel_idx < 0) return;
-    bricks[brick_pool_idx - 1].voxels[voxel_idx] = voxel;
-}
+layout(std430, binding = 5) buffer free_layer0_pool {
+    uint free_layer0_indices[];
+};
+
+layout(binding = 6) uniform atomic_uint brick_pool_counter;
+layout(binding = 7) uniform atomic_uint layer0_pool_counter;
 
 bool getBrick(ivec3 pos, uint layer0_pool_idx, out uint brick_pool_idx) {
     ivec3 p = pos;
@@ -62,7 +63,13 @@ bool getLayer0(ivec3 pos, out uint layer0_pool_idx) {
 }
 
 uint findBrickEmpty() {
-    return atomicCounterIncrement(brick_pool_counter) + 1;
+    uint next_free_idx = atomicCounterDecrement(brick_pool_counter);
+    if (next_free_idx >= BRICK_POOL_SIZE) {
+        memoryBarrierAtomicCounter();
+        atomicCounterExchange(brick_pool_counter, BRICK_POOL_SIZE);
+        return 0;
+    }
+    return free_brick_indices[next_free_idx] + 1;
 }
 
 void allocBrick(ivec3 pos, uint layer0_pool_idx, out uint brick_pool_idx) {
@@ -71,25 +78,14 @@ void allocBrick(ivec3 pos, uint layer0_pool_idx, out uint brick_pool_idx) {
     if (layer0_idx < 0) return;
 
     brick_pool_idx = findBrickEmpty();
+    if (brick_pool_idx == 0) {
+        return;
+    }
 
     layer0_nodes[layer0_pool_idx - 1].brick_idx[layer0_idx] = brick_pool_idx;
 }
 
-uint findLayer0Empty() {
-    return atomicCounterIncrement(layer0_pool_counter) + 1;
-}
-
-void allocLayer0(ivec3 pos, out uint layer0_pool_idx) {
-    ivec3 p = pos;
-    int brick_map_idx = p.x + p.y * BRICK_MAP_SIZE + p.z * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
-    if (brick_map_idx < 0) return;
-
-    layer0_pool_idx = findLayer0Empty();
-
-    layer0_pool_indices[brick_map_idx] = layer0_pool_idx;
-}
-
-bool setVoxel(ivec3 wpos, uint voxel) {
+void setVoxel(ivec3 wpos, uint voxel) {
     ivec3 layer0Pos = ivec3(floor(wpos / float(LAYER0_SIZE) / float(BRICK_SIZE)));
     ivec3 brickPos = ivec3(floor(wpos / float(BRICK_SIZE)));
     ivec3 voxelPos = ivec3(floor(wpos)) % BRICK_SIZE;
@@ -103,14 +99,14 @@ bool setVoxel(ivec3 wpos, uint voxel) {
             allocBrick(bp, layer0_pool_idx, brick_pool_idx);
         }
     }
-    return false;
 }
 
 void main() {
-    uvec4 voxel = voxels[gl_GlobalInvocationID.x];
-    ivec3 pos = ivec3(voxel.x, voxel.y, voxel.z);
-    uint raw = voxel.w;
-    if (setVoxel(pos, raw)) {
-        // TODO: This voxel requested to be placed again, put it back into the queue somehow?
+    if (atomicCounter(brick_pool_counter) > 0) {
+        memoryBarrierAtomicCounter();
+        uvec4 voxel = voxels[gl_GlobalInvocationID.x];
+        ivec3 pos = ivec3(voxel.x, voxel.y, voxel.z);
+        uint raw = voxel.w;
+        setVoxel(pos, raw);
     }
 }

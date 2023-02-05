@@ -19,23 +19,30 @@ pub const BRICK_POOL_SIZE: usize = 32768;
 pub const LAYER0_POOL_SIZE: usize = 8192;
 const BRICK_MAP_SIZE: usize = 64;
 const VOXEL_QUEUE_SIZE: usize = 16384;
+const DEALLOC_QUEUE_SIZE: usize = 256;
 
 pub struct World {
     brick_pool: FixedSizeBuffer<Brick>,
     layer0_pool: FixedSizeBuffer<Layer0>,
     layer0_map: FixedSizeBuffer<u32>,
 
+    free_brick_pool: FixedSizeBuffer<u32>,
+    free_layer0_pool: FixedSizeBuffer<u32>,
+    brick_pool_counter: AtomicCounter,
+    layer0_pool_counter: AtomicCounter,
+
+    dealloc_queue: FixedSizeBuffer<[u32; 4]>,
+    dealloc_queue_counter: AtomicCounter,
+
     voxel_queue: Arc<Mutex<Vec<(Voxel, UVec3)>>>,
     voxel_queue_gpu: FixedSizeBuffer<[u32; 4]>,
 
     model_queue: Arc<Mutex<Vec<(Arc<GpuModel>, UVec3, UVec3, bool)>>>,
 
-    brick_pool_counter: AtomicCounter,
-    layer0_pool_counter: AtomicCounter,
-
     cs_process_voxels: ComputeShader,
     cs_alloc_layers: ComputeShader,
     cs_alloc_bricks: ComputeShader,
+    cs_dealloc_bricks: ComputeShader,
     cs_place_model: ComputeShader,
 
     pub gpu_models: Vec<Arc<GpuModel>>,
@@ -53,14 +60,27 @@ impl World {
         debug!("GPU Layer0 pool created!");
         let layer0_map = FixedSizeBuffer::new(ctx, BRICK_MAP_SIZE * BRICK_MAP_SIZE * BRICK_MAP_SIZE);
         debug!("GPU Brick map created!");
+        let free_brick_pool = FixedSizeBuffer::new(ctx, BRICK_POOL_SIZE);
+        free_brick_pool.write(0, &(0..BRICK_POOL_SIZE).into_iter().rev().map(|i| i as u32).collect::<Vec<u32>>());
+        debug!("GPU Free brick pool created!");
+        let free_layer0_pool = FixedSizeBuffer::new(ctx, BRICK_POOL_SIZE);
+        free_layer0_pool.write(0, &(0..LAYER0_POOL_SIZE).into_iter().rev().map(|i| i as u32).collect::<Vec<u32>>());
+        debug!("GPU Free layer0 pool created!");
         let voxel_queue_gpu = FixedSizeBuffer::new(ctx, VOXEL_QUEUE_SIZE);
         debug!("GPU Voxel queue created!");
+        let dealloc_queue = FixedSizeBuffer::new(ctx, DEALLOC_QUEUE_SIZE);
+        debug!("GPU Deallocation queue created!");
+
+        let dealloc_queue_counter = AtomicCounter::new(ctx);
         let brick_pool_counter = AtomicCounter::new(ctx);
+        brick_pool_counter.reset(BRICK_POOL_SIZE as u32);
         let layer0_pool_counter = AtomicCounter::new(ctx);
+        layer0_pool_counter.reset(LAYER0_POOL_SIZE as u32);
 
         let cs_process_voxels = ComputeShader::new(ctx, include_str!("../shaders/cs_process_voxel_queue.glsl"));
         let cs_alloc_layers = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_layers.glsl"));
         let cs_alloc_bricks = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_bricks.glsl"));
+        let cs_dealloc_bricks = ComputeShader::new(ctx, include_str!("../shaders/cs_dealloc_bricks.glsl"));
         let cs_place_model = ComputeShader::new(ctx, include_str!("../shaders/cs_place_model.glsl"));
 
         Self {
@@ -68,17 +88,23 @@ impl World {
             layer0_pool,
             layer0_map,
 
+            free_brick_pool,
+            free_layer0_pool,
+            brick_pool_counter,
+            layer0_pool_counter,
+
+            dealloc_queue,
+            dealloc_queue_counter,
+
             voxel_queue: Arc::new(Mutex::new(Vec::new())),
             voxel_queue_gpu,
 
             model_queue: Arc::new(Mutex::new(Vec::new())),
 
-            brick_pool_counter,
-            layer0_pool_counter,
-
             cs_process_voxels,
             cs_alloc_layers,
             cs_alloc_bricks,
+            cs_dealloc_bricks,
             cs_place_model,
 
             gpu_models: Vec::new(),
@@ -137,21 +163,51 @@ impl World {
     fn process_internal(&mut self, ctx: &Context, size: u32) {
         self.bind();
         self.voxel_queue_gpu.bind(3);
-        self.brick_pool_counter.bind(4);
-        self.layer0_pool_counter.bind(5);
+        self.free_brick_pool.bind(4);
+        self.free_layer0_pool.bind(5);
+        self.brick_pool_counter.bind(6);
+        self.layer0_pool_counter.bind(7);
 
         self.cs_alloc_layers.dispatch([size, 1, 1]);
         ctx.fence();
         self.cs_alloc_bricks.dispatch([size, 1, 1]);
         ctx.fence();
-        self.cs_process_voxels.dispatch([size, 1, 1]);
 
+        // Processing voxels doesn't require these bound
         self.layer0_pool_counter.unbind();
         self.brick_pool_counter.unbind();
-        self.voxel_queue_gpu.unbind();
-        self.unbind();
+        self.free_layer0_pool.unbind();
+        self.free_brick_pool.unbind();
+        // Instead, we want to bind the deallocation queue
+        self.dealloc_queue.bind(4);
+        self.dealloc_queue_counter.bind(5);
+
+        self.cs_process_voxels.dispatch([size, 1, 1]);
+
+        self.dealloc_queue.unbind();
+        self.dealloc_queue_counter.unbind();
 
         ctx.fence();
+        // // Deallocation does require these bound!
+        // self.dealloc_queue.bind(3);
+        // self.dealloc_queue_counter.bind(4);
+        // self.free_brick_pool.bind(5);
+        // self.brick_pool_counter.bind(6);
+        //
+        // self.cs_dealloc_bricks.dispatch([DEALLOC_QUEUE_SIZE as u32, 1, 1]);
+        //
+        // self.brick_pool_counter.unbind();
+        // self.free_brick_pool.unbind();
+        // self.dealloc_queue_counter.unbind();
+        // self.dealloc_queue.unbind();
+        //
+        // self.voxel_queue_gpu.unbind();
+        // self.unbind();
+
+        ctx.fence();
+
+        self.dealloc_queue.clear();
+        self.dealloc_queue_counter.reset(0);
     }
 
     pub fn process(&mut self, ctx: &Context) {
