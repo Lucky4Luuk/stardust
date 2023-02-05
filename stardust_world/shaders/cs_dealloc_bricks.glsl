@@ -1,4 +1,4 @@
-#version 450
+#version 460
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 #define BRICK_MAP_SIZE 64
@@ -9,7 +9,7 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 #define LAYER0_POOL_SIZE 8192
 
 struct Brick {
-    uint voxels[16*16*16];
+    uint voxels[16*16*16 + 4];
 };
 
 struct Layer0Node {
@@ -29,19 +29,13 @@ layout(std430, binding = 2) buffer brick_map {
     uint layer0_pool_indices[];
 };
 
-layout(std430, binding = 3) buffer potential_dealloc_queue {
-    // xyz = edit_pos
-    // w = kind (0 = brick, 1 = layer0_node)
-    uvec4 potential_deallocs[];
-};
+layout(binding = 3) uniform atomic_uint dealloc_counter;
 
-layout(binding = 4) uniform atomic_uint potential_dealloc_queue_counter;
-
-layout(std430, binding = 5) buffer free_brick_pool {
+layout(std430, binding = 4) buffer free_brick_pool {
     uint free_brick_indices[];
 };
 
-layout(binding = 6) uniform atomic_uint brick_pool_counter;
+layout(binding = 5) uniform atomic_uint brick_pool_counter;
 
 bool brickEmpty(uint brick_pool_idx) {
     for (int i = 0; i < 16*16*16; i++) {
@@ -71,40 +65,30 @@ bool getLayer0(ivec3 pos, out uint layer0_pool_idx, out uint brick_map_idx) {
 }
 
 void main() {
-    // This shader will look at all potential deallocations, and keep all
-    // valid ones, while also filtering out duplicates.
-    //
-    // How does it work?
-    // For each potential deallocation target, we first check if it's valid.
-    // If the deallocation is no longer valid, we skip this deallocation.
-    // Otherwise, we may continue. For each deallocation, we append it to a buffer
-    // of valid deallocations. We also filter out duplicates.
-    // TODO: Filter out duplicates somehow
+    // This shader will go through all bricks in the pool and check if they are in use and empty.
+    // If they are, they get deallocated.
 
-    if (gl_GlobalInvocationID.x < atomicCounter(potential_dealloc_queue_counter)) {
-        uvec4 dealloc = potential_deallocs[gl_GlobalInvocationID.x];
-        bool is_brick = (dealloc.w == 0);
-        ivec3 wpos = ivec3(dealloc.xyz);
-        ivec3 layer0Pos = ivec3(floor(wpos / float(LAYER0_SIZE) / float(BRICK_SIZE)));
-        ivec3 brickPos = ivec3(floor(wpos / float(BRICK_SIZE)));
-        ivec3 voxelPos = ivec3(floor(wpos)) % BRICK_SIZE;
-
-        uint layer0_pool_idx = 0;
-        uint brick_map_idx = 0;
-        if (getLayer0(layer0Pos, layer0_pool_idx, brick_map_idx)) {
-            if (is_brick) {
-                uint brick_pool_idx = 0;
-                uint layer0_idx = 0;
-                if (getBrick(brickPos % LAYER0_SIZE, layer0_pool_idx, brick_pool_idx, layer0_idx)) {
-                    if (brickEmpty(brick_pool_idx)) {
-                        layer0_nodes[layer0_pool_idx - 1].brick_idx[layer0_idx] = 0;
-                        uint write_idx = atomicCounterIncrement(brick_pool_counter) + 1;
-                        if (write_idx >= BRICK_POOL_SIZE) return;
-                        free_brick_indices[write_idx] = brick_pool_idx - 1;
-                        memoryBarrier();
-                    }
-                }
-            }
+    uint brick_pool_idx = atomicCounterIncrement(dealloc_counter) % BRICK_POOL_SIZE;
+    bricks[brick_pool_idx - 1].voxels[4099] = 0;
+    if (bricks[brick_pool_idx - 1].voxels[4098] > 0) {
+        if (brickEmpty(brick_pool_idx)) {
+            // uint write_idx = atomicCounterIncrement(brick_pool_counter);
+            // if (write_idx >= BRICK_POOL_SIZE) return;
+            // free_brick_indices[write_idx] = brick_pool_idx - 1;
+            bricks[brick_pool_idx - 1].voxels[4099] = 1;
         }
     }
+
+    memoryBarrier();
+
+    // if (bricks[brick_pool_idx - 1].voxels[4099] == 1) {
+    //     uint layer0_pool_idx = bricks[brick_pool_idx - 1].voxels[4096];
+    //     if (layer0_pool_idx > 0) {
+    //         uint l0_idx = bricks[brick_pool_idx - 1].voxels[4097];
+    //         layer0_nodes[layer0_pool_idx - 1].brick_idx[l0_idx] = 0;
+    //         for (int i = 0; i < 16*16*16 + 4; i++) {
+    //             bricks[brick_pool_idx - 1].voxels[i] = 0;
+    //         }
+    //     }
+    // }
 }

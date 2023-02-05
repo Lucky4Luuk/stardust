@@ -1,4 +1,4 @@
-#version 450
+#version 460
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 #define BRICK_MAP_SIZE 64
@@ -9,7 +9,7 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 #define LAYER0_POOL_SIZE 8192
 
 struct Brick {
-    uint voxels[16*16*16];
+    uint voxels[16*16*16 + 4];
 };
 
 struct Layer0Node {
@@ -32,14 +32,6 @@ layout(std430, binding = 2) buffer brick_map {
 layout(std430, binding = 3) buffer voxel_queue {
     uvec4 voxels[];
 };
-
-layout(std430, binding = 4) buffer dealloc_queue {
-    // xyz = edit_pos
-    // w = kind (0 = brick, 1 = layer0_node)
-    uvec4 dealloc_targets[];
-};
-
-layout(binding = 5) uniform atomic_uint dealloc_queue_counter;
 
 void setVoxelInternal(ivec3 pos, uint voxel, uint brick_pool_idx) {
     ivec3 local_pos = ivec3(pos);
@@ -85,16 +77,8 @@ bool setVoxel(ivec3 wpos, uint voxel) {
 
 void main() {
     uvec4 voxel = voxels[gl_GlobalInvocationID.x];
-    ivec3 pos = ivec3(voxel.xyz);
+    ivec3 wpos = ivec3(voxel.xyz);
     uint raw = voxel.w;
 
-    bool has_placed = setVoxel(pos, raw);
-
-    if (has_placed && raw == 0) {
-        // Add layer0_node and brick to potential deallocation targets
-        uint i = atomicCounterIncrement(dealloc_queue_counter) + 1;
-        dealloc_targets[i] = uvec4(voxel.xyz, 0); // Brick
-        i = atomicCounterIncrement(dealloc_queue_counter) + 1;
-        dealloc_targets[i] = uvec4(voxel.xyz, 1); // Layer0
-    }
+    bool has_placed = setVoxel(wpos, raw);
 }

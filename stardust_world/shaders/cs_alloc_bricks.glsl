@@ -9,7 +9,7 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 #define LAYER0_POOL_SIZE 8192
 
 struct Brick {
-    uint voxels[16*16*16];
+    uint voxels[16*16*16 + 4];
 };
 
 struct Layer0Node {
@@ -83,6 +83,10 @@ void allocBrick(ivec3 pos, uint layer0_pool_idx, out uint brick_pool_idx) {
     }
 
     layer0_nodes[layer0_pool_idx - 1].brick_idx[layer0_idx] = brick_pool_idx;
+    bricks[brick_pool_idx - 1].voxels[4096] = layer0_pool_idx;
+    bricks[brick_pool_idx - 1].voxels[4097] = layer0_idx;
+    bricks[brick_pool_idx - 1].voxels[4098] = 1;
+    bricks[brick_pool_idx - 1].voxels[4099] = 0;
 }
 
 void setVoxel(ivec3 wpos, uint voxel) {

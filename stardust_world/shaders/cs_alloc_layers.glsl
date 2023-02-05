@@ -9,7 +9,7 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 #define LAYER0_POOL_SIZE 8192
 
 struct Brick {
-    uint voxels[16*16*16];
+    uint voxels[16*16*16 + 4];
 };
 
 struct Layer0Node {

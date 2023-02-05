@@ -19,7 +19,7 @@ pub const BRICK_POOL_SIZE: usize = 32768;
 pub const LAYER0_POOL_SIZE: usize = 8192;
 const BRICK_MAP_SIZE: usize = 64;
 const VOXEL_QUEUE_SIZE: usize = 16384;
-const DEALLOC_QUEUE_SIZE: usize = 256;
+const DEALLOC_QUEUE_SIZE: usize = 64;
 
 pub struct World {
     brick_pool: FixedSizeBuffer<Brick>,
@@ -31,7 +31,6 @@ pub struct World {
     brick_pool_counter: AtomicCounter,
     layer0_pool_counter: AtomicCounter,
 
-    dealloc_queue: FixedSizeBuffer<[u32; 4]>,
     dealloc_queue_counter: AtomicCounter,
 
     voxel_queue: Arc<Mutex<Vec<(Voxel, UVec3)>>>,
@@ -55,6 +54,7 @@ impl World {
     pub fn new(ctx: &Context) -> Self {
         debug!("Creating new world...");
         let brick_pool = FixedSizeBuffer::new(ctx, BRICK_POOL_SIZE);
+        brick_pool.write(0, &(vec![Brick::empty(); BRICK_POOL_SIZE]));
         debug!("GPU Brick pool created!");
         let layer0_pool = FixedSizeBuffer::new(ctx, LAYER0_POOL_SIZE);
         debug!("GPU Layer0 pool created!");
@@ -68,8 +68,6 @@ impl World {
         debug!("GPU Free layer0 pool created!");
         let voxel_queue_gpu = FixedSizeBuffer::new(ctx, VOXEL_QUEUE_SIZE);
         debug!("GPU Voxel queue created!");
-        let dealloc_queue = FixedSizeBuffer::new(ctx, DEALLOC_QUEUE_SIZE);
-        debug!("GPU Deallocation queue created!");
 
         let dealloc_queue_counter = AtomicCounter::new(ctx);
         let brick_pool_counter = AtomicCounter::new(ctx);
@@ -93,7 +91,6 @@ impl World {
             brick_pool_counter,
             layer0_pool_counter,
 
-            dealloc_queue,
             dealloc_queue_counter,
 
             voxel_queue: Arc::new(Mutex::new(Vec::new())),
@@ -173,41 +170,36 @@ impl World {
         self.cs_alloc_bricks.dispatch([size, 1, 1]);
         ctx.fence();
 
-        // Processing voxels doesn't require these bound
+        // Processing voxels doesn't use these
         self.layer0_pool_counter.unbind();
         self.brick_pool_counter.unbind();
         self.free_layer0_pool.unbind();
         self.free_brick_pool.unbind();
-        // Instead, we want to bind the deallocation queue
-        self.dealloc_queue.bind(4);
-        self.dealloc_queue_counter.bind(5);
 
+        // Dispatch
         self.cs_process_voxels.dispatch([size, 1, 1]);
 
-        self.dealloc_queue.unbind();
+        ctx.fence();
+
+        self.voxel_queue_gpu.unbind();
+        self.unbind();
+
+        ctx.fence();
+    }
+
+    fn process_dealloc(&mut self, ctx: &Context) {
+        self.bind();
+        self.dealloc_queue_counter.bind(3);
+        self.free_brick_pool.bind(4);
+        self.brick_pool_counter.bind(5);
+
+        self.cs_dealloc_bricks.dispatch([DEALLOC_QUEUE_SIZE as u32, 1, 1]);
+        ctx.fence();
+
+        self.brick_pool_counter.unbind();
+        self.free_brick_pool.unbind();
         self.dealloc_queue_counter.unbind();
-
-        ctx.fence();
-        // // Deallocation does require these bound!
-        // self.dealloc_queue.bind(3);
-        // self.dealloc_queue_counter.bind(4);
-        // self.free_brick_pool.bind(5);
-        // self.brick_pool_counter.bind(6);
-        //
-        // self.cs_dealloc_bricks.dispatch([DEALLOC_QUEUE_SIZE as u32, 1, 1]);
-        //
-        // self.brick_pool_counter.unbind();
-        // self.free_brick_pool.unbind();
-        // self.dealloc_queue_counter.unbind();
-        // self.dealloc_queue.unbind();
-        //
-        // self.voxel_queue_gpu.unbind();
-        // self.unbind();
-
-        ctx.fence();
-
-        self.dealloc_queue.clear();
-        self.dealloc_queue_counter.reset(0);
+        self.unbind();
     }
 
     pub fn process(&mut self, ctx: &Context) {
@@ -291,6 +283,8 @@ impl World {
                 self.process_internal(ctx, size as u32);
             }
         }
+
+        self.process_dealloc(ctx);
 
         self.voxel_queue_gpu.clear();
     }

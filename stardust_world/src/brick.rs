@@ -1,17 +1,21 @@
 use stardust_common::math::*;
 use stardust_common::voxel::Voxel;
 
+const BRICK_SIZE: usize = 16*16*16 + 4;
+
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct Brick([Voxel; 16*16*16]);
+pub struct Brick([Voxel; BRICK_SIZE]);
 
 impl Brick {
     pub fn empty() -> Self {
-        Self([Voxel::empty(); 16*16*16])
+        Self([Voxel::empty(); BRICK_SIZE])
     }
 
     pub fn full() -> Self {
-        Self([Voxel::new([255;3],255,0,false,255); 16*16*16])
+        let mut data = [Voxel::new([255;3],255,0,false,255); BRICK_SIZE];
+        for i in 0..4 { data[4096 + i] = Voxel(0); }
+        Self(data)
     }
 
     pub fn is_empty(&self) -> bool {
