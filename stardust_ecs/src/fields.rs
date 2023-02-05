@@ -2,7 +2,11 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
 use specs::prelude::*;
+use indexmap::IndexMap;
 use stardust_world::GpuModel;
+
+// pub type FieldMap<'a> = BTreeMap<String, (bool, Value<'a>)>;
+pub type FieldMap<'a> = IndexMap<String, (bool, Value<'a>)>;
 
 #[derive(Debug, Error)]
 pub enum FieldError {
@@ -152,7 +156,7 @@ impl<T: Component + Clone> EngineComponentWritable for T {
 }
 
 pub trait EngineComponent: EngineComponentWritable {
-    fn fields(&mut self) -> BTreeMap<String, (bool, Value)>;
+    fn fields(&mut self) -> FieldMap;
     fn set_field(&mut self, name: &str, value: ValueOwned) -> Result<(), FieldError> {
         let mut fields = self.fields();
         if let Some((_, value_ref)) = fields.get_mut(name) {

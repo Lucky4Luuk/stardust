@@ -1,12 +1,11 @@
 use specs::prelude::*;
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use stardust_common::math::*;
 use stardust_world::GpuModel;
 
-use crate::{Value, ValueOwned, FieldError};
+use crate::{Value, ValueOwned, FieldError, FieldMap};
 
 #[derive(Component, Clone)]
 #[storage(DenseVecStorage)]
@@ -47,8 +46,8 @@ impl CompModel {
 }
 
 impl crate::EngineComponent for CompModel {
-    fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
-        let mut map = BTreeMap::new();
+    fn fields(&mut self) -> FieldMap {
+        let mut map = FieldMap::new();
         map.insert("model".to_string(), (true, Value::ModelReference(&mut self.model_ref)));
         map.insert("dirty".to_string(), (false, Value::Bool(&mut self.dirty)));
         map

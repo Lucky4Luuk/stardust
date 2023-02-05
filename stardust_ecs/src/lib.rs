@@ -1,7 +1,6 @@
 #[macro_use] extern crate specs;
 use specs::prelude::*;
-
-use std::collections::BTreeMap;
+use indexmap::IndexMap;
 use std::sync::Arc;
 
 use stardust_common::math::*;
@@ -17,12 +16,14 @@ pub use model::*;
 
 pub mod prelude;
 
+pub type ComponentMap = IndexMap<String, Box<dyn EngineComponent>>;
+
 #[derive(Debug, Component, Clone)]
 #[storage(VecStorage)]
 pub struct CompName(pub String);
 impl EngineComponent for CompName {
-    fn fields(&mut self) -> BTreeMap<String, (bool, Value)> {
-        let mut map = BTreeMap::new();
+    fn fields(&mut self) -> FieldMap {
+        let mut map = FieldMap::new();
         map.insert(String::from("Name"), (true, Value::String(&mut self.0)));
         map
     }
@@ -54,7 +55,7 @@ pub struct EntityInfo {
 
 pub struct EntityComponentInfo {
     pub entity: Entity,
-    pub components: BTreeMap<String, Box<dyn EngineComponent>>,
+    pub components: ComponentMap,
 }
 
 pub struct Scene {
@@ -126,7 +127,7 @@ impl Scene {
         let transform_storage = self.world.read_storage::<CompTransform>();
         let model_storage = self.world.read_storage::<CompModel>();
 
-        let mut components: BTreeMap<String, Box<dyn EngineComponent>> = BTreeMap::new();
+        let mut components: ComponentMap = ComponentMap::new();
 
         if let Some(comp) = name_storage.get(entity) {
             components.insert(String::from("Name"), Box::new(comp.clone()));

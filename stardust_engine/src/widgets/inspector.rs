@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use stardust_ecs::prelude::*;
 
 pub struct Inspector {
@@ -73,7 +72,7 @@ impl super::Widget for Inspector {
     }
 }
 
-fn draw_generic_component<S: Into<String>>(ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals, entity: Entity, name: S, fields: BTreeMap<String, (bool, Value)>) -> bool {
+fn draw_generic_component<S: Into<String>>(ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals, entity: Entity, name: S, fields: FieldMap) -> bool {
     let name = name.into();
 
     let mut dirty = false;

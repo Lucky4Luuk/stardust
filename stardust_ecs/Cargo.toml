@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 specs = { version = "0.18", features = ["derive"] }
 thiserror = "1.0"
+indexmap = "1.9.2"
 
 stardust_common = { path = "../stardust_common" }
 stardust_world = { path = "../stardust_world" }
