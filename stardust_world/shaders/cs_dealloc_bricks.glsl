@@ -44,51 +44,42 @@ bool brickEmpty(uint brick_pool_idx) {
     return true;
 }
 
-bool getBrick(ivec3 pos, uint layer0_pool_idx, out uint brick_pool_idx, out uint layer0_idx) {
-    ivec3 p = pos;
-    int signed_layer0_idx = p.x + p.y * LAYER0_SIZE + p.z * LAYER0_SIZE * LAYER0_SIZE;
-    if (signed_layer0_idx < 0) return false;
-    layer0_idx = uint(signed_layer0_idx);
-    brick_pool_idx = layer0_nodes[layer0_pool_idx - 1].brick_idx[layer0_idx];
-    if (brick_pool_idx == 0) return false;
-    return true;
-}
-
-bool getLayer0(ivec3 pos, out uint layer0_pool_idx, out uint brick_map_idx) {
-    ivec3 p = pos;
-    int signed_brick_map_idx = p.x + p.y * BRICK_MAP_SIZE + p.z * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
-    if (signed_brick_map_idx < 0) return false;
-    brick_map_idx = uint(signed_brick_map_idx);
-    layer0_pool_idx = layer0_pool_indices[brick_map_idx];
-    if (layer0_pool_idx == 0) return false;
-    return true;
-}
-
 void main() {
     // This shader will go through all bricks in the pool and check if they are in use and empty.
     // If they are, they get deallocated.
 
     uint brick_pool_idx = atomicCounterIncrement(dealloc_counter) % BRICK_POOL_SIZE;
-    bricks[brick_pool_idx - 1].voxels[4099] = 0;
+
     if (bricks[brick_pool_idx - 1].voxels[4098] > 0) {
         if (brickEmpty(brick_pool_idx)) {
-            // uint write_idx = atomicCounterIncrement(brick_pool_counter);
-            // if (write_idx >= BRICK_POOL_SIZE) return;
-            // free_brick_indices[write_idx] = brick_pool_idx - 1;
-            bricks[brick_pool_idx - 1].voxels[4099] = 1;
+            bricks[brick_pool_idx - 1].voxels[4099] += 1;
+        } else {
+            bricks[brick_pool_idx - 1].voxels[4099] = 0;
         }
     }
 
+    // if (bricks[brick_pool_idx - 1].voxels[4099] > 1) {
+    //     bricks[brick_pool_idx - 1].voxels[4098] = 0;
+    // }
+
     memoryBarrier();
 
-    // if (bricks[brick_pool_idx - 1].voxels[4099] == 1) {
-    //     uint layer0_pool_idx = bricks[brick_pool_idx - 1].voxels[4096];
-    //     if (layer0_pool_idx > 0) {
-    //         uint l0_idx = bricks[brick_pool_idx - 1].voxels[4097];
-    //         layer0_nodes[layer0_pool_idx - 1].brick_idx[l0_idx] = 0;
-    //         for (int i = 0; i < 16*16*16 + 4; i++) {
-    //             bricks[brick_pool_idx - 1].voxels[i] = 0;
-    //         }
-    //     }
-    // }
+    if (bricks[brick_pool_idx - 1].voxels[4098] > 0) {
+        if (bricks[brick_pool_idx - 1].voxels[4099] > 1) {
+            uint layer0_pool_idx = bricks[brick_pool_idx - 1].voxels[4096];
+            if (layer0_pool_idx > 0) {
+                uint l0_idx = bricks[brick_pool_idx - 1].voxels[4097];
+                if (layer0_nodes[layer0_pool_idx - 1].brick_idx[l0_idx] == brick_pool_idx) {
+                    layer0_nodes[layer0_pool_idx - 1].brick_idx[l0_idx] = 0;
+                    for (int i = 0; i < 16*16*16 + 4; i++) {
+                        bricks[brick_pool_idx - 1].voxels[i] = 0;
+                    }
+
+                    uint write_idx = atomicCounterIncrement(brick_pool_counter) + 1;
+                    if (write_idx >= BRICK_POOL_SIZE) return;
+                    free_brick_indices[write_idx] = brick_pool_idx - 1;
+                }
+            }
+        }
+    }
 }
