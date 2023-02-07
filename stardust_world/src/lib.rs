@@ -18,8 +18,8 @@ pub use data::*;
 pub const BRICK_POOL_SIZE: usize = 32768;
 pub const LAYER0_POOL_SIZE: usize = 8192;
 const BRICK_MAP_SIZE: usize = 64;
-const VOXEL_QUEUE_SIZE: usize = 4096;
-const DEALLOC_QUEUE_SIZE: usize = 64;
+const VOXEL_QUEUE_SIZE: usize = 32768;
+const DEALLOC_QUEUE_SIZE: usize = 4096;
 
 pub struct World {
     brick_pool: FixedSizeBuffer<Brick>,
