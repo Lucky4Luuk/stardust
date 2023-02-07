@@ -95,6 +95,22 @@ impl Engine {
 
         obj.widgets.add_widget(Box::new(PerfDebug), DockLoc::Floating);
 
+        // let mut voxels = Vec::new();
+        // for x in 0..16 {
+        //     for y in 0..16 {
+        //         for z in 0..16 {
+        //             let rgb = [x as u8 * 16, y as u8 * 16, z as u8 * 16];
+        //             let v = stardust_common::voxel::Voxel::new(rgb, 255, 0, false, 255);
+        //             let p = uvec3(x,y,z);
+        //             voxels.push((v, p));
+        //         }
+        //     }
+        // }
+        // obj.world.register_model(Arc::new(GpuModel::from_voxels(ctx, String::from("Test"), &voxels)));
+        let mv_model = stardust_magica_voxel::MagicaVoxelModel::from_bytes(include_bytes!("../../gamedata/models/monu10.vox")).unwrap();
+        let model = mv_model.to_sdvx();
+        obj.world.register_model(Arc::new(GpuModel::from_model(ctx, String::from("Test"), &model)));
+
         obj
     }
 }

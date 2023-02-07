@@ -24,8 +24,6 @@ impl GpuModel {
         let vox_buf = FixedSizeBuffer::new(ctx, voxels.len());
         vox_buf.write(0, &voxel_data);
 
-        trace!("wahoo: {}", voxels.len());
-
         Self {
             vox_buf,
             voxels: voxels.len(),

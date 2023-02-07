@@ -50,11 +50,10 @@ impl Model {
     }
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        let mut raw_voxels: Vec<u32> = self.voxels.iter().map(|v| v.0).collect();
-        let mut raw_positions: Vec<[u32; 4]> = self.positions.iter().map(|(pos, idx)| [pos.x,pos.y,pos.z,*idx]).collect();
+        let raw_voxels: Vec<u32> = self.voxels.iter().map(|v| v.0).collect();
+        let raw_positions: Vec<[u32; 4]> = self.positions.iter().map(|(pos, idx)| [pos.x,pos.y,pos.z,*idx]).collect();
 
-        raw_voxels.sort();
-        raw_positions.sort();
+        // TODO: Sort here, but keep them aligned!!!
 
         let raw = RawModel {
             voxels: raw_voxels,

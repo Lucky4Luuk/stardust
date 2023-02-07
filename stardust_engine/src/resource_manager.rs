@@ -1,11 +1,55 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::path::{Path, PathBuf};
+use std::fs::{File, DirEntry};
+use std::io::{Read, Write};
 use egui_extras::RetainedImage;
-use vfs::*;
 use anyhow::Error;
 use thiserror::Error;
 
 use stardust_sdvx::Model;
+
+pub struct Vfs {
+    root: PathBuf,
+}
+
+impl Vfs {
+    pub fn new<S: Into<String>>(path: S) -> Self {
+        Self {
+            root: path.into().into(),
+        }
+    }
+
+    pub fn get_full_path<S: AsRef<Path>>(&self, path: S) -> PathBuf {
+        let path = path.as_ref();
+        if path.starts_with(&self.root) {
+            path.to_owned()
+        } else {
+            let mut full_path = self.root.clone();
+            full_path.push(path);
+            full_path
+        }
+    }
+
+    pub fn open_file<S: AsRef<Path>>(&self, path: S) -> std::io::Result<File> {
+        File::open(self.get_full_path(path))
+    }
+
+    pub fn create_file<S: AsRef<Path>>(&self, path: S) -> std::io::Result<File> {
+        File::create(self.get_full_path(path))
+    }
+
+    pub fn read_dir<S: AsRef<Path>>(&self, path: S) -> std::io::Result<Vec<DirEntry>> {
+        let mut results = Vec::new();
+        for item in std::fs::read_dir(self.get_full_path(path))? {
+            match item {
+                Err(_) => error!("VFS couldn't read item from directory: {:?}", item),
+                Ok(item) => results.push(item),
+            }
+        }
+        Ok(results)
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ResourceManagerError {
@@ -24,22 +68,24 @@ pub enum ManagedResource {
 
 pub struct ResourceManager {
     pub filesystem: ResourcesFilesystem,
-    pub vfs: AltrootFS,
+    // pub vfs: AltrootFS,
+    pub vfs: Vfs,
 
     pub request_refresh: bool,
-    pub requested_resources: Vec<String>,
+    pub requested_resources: Vec<PathBuf>,
     request_overwrite: bool,
 
-    pub read_errors: HashMap<String, Rc<Error>>,
-    pub resource_info: HashMap<String, String>,
-    pub models: HashMap<String, Rc<Model>>,
+    pub read_errors: HashMap<PathBuf, Rc<Error>>,
+    pub resource_info: HashMap<PathBuf, String>,
+    pub models: HashMap<PathBuf, Rc<Model>>,
 }
 
 impl ResourceManager {
     pub fn new() -> Self {
         Self {
             filesystem: ResourcesFilesystem::new(),
-            vfs: AltrootFS::new(VfsPath::new(PhysicalFS::new("gamedata"))),
+            // vfs: AltrootFS::new(VfsPath::new(PhysicalFS::new("gamedata"))),
+            vfs: Vfs::new("gamedata"),
 
             request_refresh: true,
             requested_resources: Vec::new(),
@@ -51,57 +97,49 @@ impl ResourceManager {
         }
     }
 
-    pub fn load_model(&mut self, path: &str, ctx: &foxtail::Context, world: &mut stardust_world::World) {
-        if self.models.contains_key(path) && self.request_overwrite == false { return; } // Already loaded
-        match self.vfs.open_file(path) {
-            Err(e) => { self.read_errors.insert(path.to_string(), Rc::new(e.into())); },
+    pub fn load_model(&mut self, path: PathBuf, ctx: &foxtail::Context, world: &mut stardust_world::World) {
+        if self.models.contains_key(&path) && self.request_overwrite == false { return; } // Already loaded
+        match self.vfs.open_file(&path) {
+            Err(e) => { self.read_errors.insert(path.clone(), Rc::new(e.into())); },
             Ok(mut file) => {
                 let mut bytes = Vec::new();
                 if let Err(e) = file.read_to_end(&mut bytes) {
-                    self.read_errors.insert(path.to_string(), Rc::new(e.into()));
+                    self.read_errors.insert(path.clone(), Rc::new(e.into()));
                     return;
                 }
                 drop(file);
 
                 match Model::from_bytes(&bytes) {
                     Err(e) => {
-                        self.read_errors.insert(path.to_string(), Rc::new(e.into()));
+                        self.read_errors.insert(path.clone(), Rc::new(e.into()));
                         return;
                     },
                     Ok(model) => {
-                        self.models.insert(path.to_string(), Rc::new(model));
+                        self.models.insert(path.clone(), Rc::new(model));
                     }
                 }
             },
         }
 
-        if let Ok(model) = self.fetch_model(path) {
-            let gpu_model = stardust_world::GpuModel::from_model(ctx, path.to_string(), model);
+        if let Ok(model) = self.fetch_model(&path) {
+            let gpu_model = stardust_world::GpuModel::from_model(ctx, path.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or(String::from("UNKNOWN")), model);
             let gpu_model = std::sync::Arc::new(gpu_model);
             world.register_model(std::sync::Arc::clone(&gpu_model));
         }
     }
 
-    pub fn load_resource(&mut self, path: &str, ctx: &foxtail::Context, world: &mut stardust_world::World) {
-        let mut extension = path.rsplit("/").next().unwrap_or("").rsplit(".").next().unwrap_or("");
-        let mut path_wo_ext = path.to_string();
-        if extension == path.rsplit("/").next().unwrap_or("") {
-            extension = "";
-        } else {
-            for _ in 0..extension.len()+1 {
-                path_wo_ext.pop();
-            }
-        }
+    pub fn load_resource(&mut self, path: PathBuf, ctx: &foxtail::Context, world: &mut stardust_world::World) {
+        let extension = path.extension().map(|s| s.to_str().unwrap_or("")).unwrap_or("");
         match extension {
             "sdvx" => self.load_model(path, ctx, world),
             "vox" => {
                 // TODO: Check if path already exists? Also use overwrite here
-                match self.vfs.open_file(path) {
-                    Err(e) => { self.read_errors.insert(path.to_string(), Rc::new(e.into())); },
+                match self.vfs.open_file(&path) {
+                    Err(e) => { self.read_errors.insert(path.clone(), Rc::new(e.into())); },
                     Ok(mut file) => {
                         let mut bytes = Vec::new();
                         if let Err(e) = file.read_to_end(&mut bytes) {
-                            self.read_errors.insert(path.to_string(), Rc::new(e.into()));
+                            self.read_errors.insert(path.clone(), Rc::new(e.into()));
                             return;
                         }
                         drop(file);
@@ -109,69 +147,64 @@ impl ResourceManager {
                         match stardust_magica_voxel::MagicaVoxelModel::from_bytes(&bytes) {
                             Ok(mv_model) => {
                                 let sdvx_model = mv_model.to_sdvx();
-                                let sdvx_path = format!("{}.sdvx", path_wo_ext);
+                                let mut sdvx_path = path.clone();
+                                sdvx_path.set_extension("sdvx");
                                 match sdvx_model.to_bytes() {
-                                    Err(e) => { self.read_errors.insert(sdvx_path.to_string(), Rc::new(e.into())); },
+                                    Err(e) => { self.read_errors.insert(sdvx_path.clone(), Rc::new(e.into())); },
                                     Ok(bytes) => match self.vfs.create_file(&sdvx_path) {
-                                        Err(e) => { self.read_errors.insert(sdvx_path.to_string(), Rc::new(e.into())); },
+                                        Err(e) => { self.read_errors.insert(sdvx_path.clone(), Rc::new(e.into())); },
                                         Ok(mut file) => {
                                             if let Err(e) = file.write_all(&bytes) {
                                                 error!("Error writing path: {}", e);
                                             }
-                                            self.load_resource(&sdvx_path, ctx, world);
-                                            self.resource_info.insert(path.to_string(), format!("File was used to generate {}", sdvx_path));
+                                            self.load_resource(sdvx_path.clone(), ctx, world);
+                                            self.resource_info.insert(path.clone(), format!("File was used to generate {}", sdvx_path.display()));
                                         },
                                     },
                                 }
                             },
-                            Err(e) => { self.read_errors.insert(path.to_string(), e.into()); },
+                            Err(e) => { self.read_errors.insert(path.clone(), e.into()); },
                         }
                     }
                 }
             },
-            _ => { self.read_errors.insert(path.to_string(), Rc::new(ResourceManagerError::UnknownFileType.into())); },
+            _ => { self.read_errors.insert(path.clone(), Rc::new(ResourceManagerError::UnknownFileType.into())); },
         }
     }
 
-    fn gather_resources_internal(&mut self, path: &str) {
-        if let Ok(items) = self.vfs.read_dir(path) {
-            for item in items {
-                if let Ok(metadata) = self.vfs.metadata(&format!("{}/{}", path, item)) {
-                    match metadata.file_type {
-                        VfsFileType::Directory => self.gather_resources_internal(&format!("{}/{}", path, item)),
-                        VfsFileType::File => self.requested_resources.push(format!("{}/{}", path, item)),
+    fn gather_resources_internal(&mut self, path: PathBuf) {
+        debug!("path: {:?}", path);
+        match self.vfs.read_dir(&path) {
+            Ok(items) => {
+                for item in items {
+                    let item_path = item.path();
+                    if item_path.is_dir() {
+                        self.gather_resources_internal(item_path);
+                    } else {
+                        self.requested_resources.push(item_path);
                     }
                 }
-            }
+            },
+            Err(e) => panic!("{}\npath: {:?}", e, path),
         }
     }
 
     pub fn load_next_resource(&mut self, ctx: &foxtail::Context, world: &mut stardust_world::World) {
         if self.requested_resources.len() > 0 {
-            self.load_resource(&self.requested_resources[0].clone(), ctx, world);
+            self.load_resource(self.requested_resources[0].clone(), ctx, world);
             self.requested_resources.remove(0);
-        } else {
-            // Just to make sure
-            self.request_overwrite = false;
         }
     }
 
     pub fn request_all_resources(&mut self, overwrite: bool) -> usize {
         self.request_overwrite = overwrite;
         self.requested_resources = Vec::new();
-        self.gather_resources_internal(".");
-        self.requested_resources.iter_mut().for_each(|fp| {
-            if fp.starts_with("./") {
-                *fp = fp[2..].to_string();
-            }
-            if fp.starts_with("/") {
-                *fp = fp[1..].to_string();
-            }
-        });
+        self.gather_resources_internal(PathBuf::new());
         self.requested_resources.len()
     }
 
-    pub fn fetch_model(&self, path: &str) -> Result<&Rc<Model>, Rc<Error>> {
+    pub fn fetch_model<P: AsRef<Path>>(&self, path: P) -> Result<&Rc<Model>, Rc<Error>> {
+        let path = path.as_ref();
         if let Some(model) = self.models.get(path) {
             Ok(model)
         } else {
@@ -179,14 +212,14 @@ impl ResourceManager {
         }
     }
 
-    pub fn fetch_resource(&self, path: &str) -> ManagedResource {
-        if let Ok(model) = self.fetch_model(path) {
+    pub fn fetch_resource(&self, path: PathBuf) -> ManagedResource {
+        if let Ok(model) = self.fetch_model(&path) {
             return ManagedResource::Model(Rc::clone(model));
         }
-        if let Some(info) = self.resource_info.get(path) {
+        if let Some(info) = self.resource_info.get(&path) {
             return ManagedResource::Info(info.clone());
         }
-        ManagedResource::Error(self.read_errors.get(path).map(|e| Rc::clone(e)).unwrap_or(Rc::new(ResourceManagerError::PathDoesntExist.into())))
+        ManagedResource::Error(self.read_errors.get(&path).map(|e| Rc::clone(e)).unwrap_or(Rc::new(ResourceManagerError::PathDoesntExist.into())))
     }
 }
 

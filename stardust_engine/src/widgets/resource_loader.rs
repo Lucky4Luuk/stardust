@@ -26,7 +26,7 @@ impl super::Widget for ResourceLoader {
         if self.done { *open = false; }
     }
 
-    fn draw_with_ctx(&mut self, wctx: &mut super::WidgetContext, ctx: &foxtail::Context, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
+    fn draw_with_ctx(&mut self, _wctx: &mut super::WidgetContext, ctx: &foxtail::Context, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
         if engine.resources.requested_resources.len() > 0 {
             let loading = engine.resources.requested_resources.first().unwrap();
             let progress = (engine.resources.requested_resources.len() as f32) / (self.to_load as f32);
@@ -34,7 +34,7 @@ impl super::Widget for ResourceLoader {
             ui.centered_and_justified(|ui| {
                 ui.vertical(|ui| {
                     ui.add(egui::ProgressBar::new(progress));
-                    ui.label(&format!("Loading \"{}\"...", loading));
+                    ui.label(&format!("Loading \"{}\"...", loading.display()));
                 });
             });
 

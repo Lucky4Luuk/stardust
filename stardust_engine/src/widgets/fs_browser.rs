@@ -1,12 +1,20 @@
 use std::path::{Path, PathBuf};
 
-use vfs::*;
+fn filename_from_path<P: AsRef<Path>>(item: P) -> Option<String> {
+    let item = item.as_ref();
+    item.file_name().map(|s| s.to_string_lossy().to_string())
+}
+
+fn extension_from_path<P: AsRef<Path>>(item: P) -> String {
+    let item = item.as_ref();
+    item.extension().map(|s| s.to_str().unwrap_or("").to_string()).unwrap_or(String::new())
+}
 
 pub struct FsBrowser {
-    active_folder: Option<PathBuf>,
+    active_folder: PathBuf,
 
-    folders: Vec<String>,
-    files: Vec<String>,
+    folders: Vec<PathBuf>,
+    files: Vec<PathBuf>,
 
     request_refresh: bool,
 }
@@ -14,7 +22,7 @@ pub struct FsBrowser {
 impl FsBrowser {
     pub fn new() -> Self {
         Self {
-            active_folder: None,
+            active_folder: PathBuf::new(),
 
             folders: Vec::new(),
             files: Vec::new(),
@@ -27,28 +35,24 @@ impl FsBrowser {
         // Gather a list of items in the directory
         self.folders = Vec::new();
         self.files = Vec::new();
-        let path = self.active_folder.as_ref().map(|s| s.display().to_string()).unwrap_or(String::from("."));
-        if let Ok(items) = engine.resources.vfs.read_dir(&path) {
+        if let Ok(items) = engine.resources.vfs.read_dir(&self.active_folder) {
             for item in items {
-                if let Ok(metadata) = engine.resources.vfs.metadata(&format!("{}/{}", path, item)) {
-                    match metadata.file_type {
-                        VfsFileType::Directory => self.folders.push(item),
-                        _ => self.files.push(item),
-                    }
+                let item_path = item.path();
+                if item_path.is_dir() {
+                    self.folders.push(item_path);
+                } else {
+                    self.files.push(item_path);
                 }
             }
         }
         self.request_refresh = false;
     }
 
-    pub fn browse_local(&mut self, local_path: String) {
-        let mut current_path = match &self.active_folder {
-            Some(path) => path.clone(),
-            None => PathBuf::new(),
-        };
-        current_path.push(local_path);
-        self.active_folder = Some(current_path);
-        self.request_refresh = true;
+    pub fn browse_local(&mut self, local_path: PathBuf) {
+        if let Some(fp) = filename_from_path(local_path) {
+            self.active_folder.push(fp);
+            self.request_refresh = true;
+        }
     }
 }
 
@@ -64,12 +68,10 @@ impl super::Widget for FsBrowser {
     fn draw(&mut self, ctx: &mut super::WidgetContext, ui: &mut egui::Ui, engine: &mut crate::EngineInternals) {
         if self.request_refresh { self.refresh(engine); }
 
-        if self.active_folder.is_some() {
+        // if self.active_folder.parent().map(|parent| parent.parent().is_some()).unwrap_or(false) {
+        if self.active_folder.parent().is_some() {
             if ui.button("../").clicked() {
-                match self.active_folder.as_ref().unwrap().parent() {
-                    Some(parent) => self.active_folder = Some(parent.to_owned()),
-                    None => self.active_folder = None,
-                }
+                self.active_folder.pop();
                 self.request_refresh = true;
             }
         }
@@ -91,7 +93,7 @@ impl super::Widget for FsBrowser {
                             if ui.add(egui::ImageButton::new(folder_tex_id, (button_width, button_width))).clicked() {
                                 next_folder = Some(f.clone());
                             }
-                            ui.label(f);
+                            ui.label(filename_from_path(f).unwrap());
                         });
                         i += 1;
                         if i >= buttons {
@@ -101,25 +103,16 @@ impl super::Widget for FsBrowser {
                     }
                     for f in &self.files {
                         ui.vertical_centered(|ui| {
-                            let extension = f.rsplit(".").next().unwrap_or("");
-                            let tex_id = engine.resources.filesystem.file_icon_from_extension(extension).texture_id(ui.ctx());
+                            let extension = extension_from_path(f);
+                            let filename = filename_from_path(f).unwrap();
+                            let tex_id = engine.resources.filesystem.file_icon_from_extension(&extension).texture_id(ui.ctx());
                             let resp = ui.add(egui::ImageButton::new(tex_id, (button_width, button_width)));
                             if resp.clicked() {
-                                debug!("[BUTTON] file clicked: {}", f);
-                                let p = self.active_folder.as_ref().map(|p| p.display().to_string()).unwrap_or(".".to_string());
-                                let mut fp = format!("{}/{}", p, f);
-                                if fp.starts_with("./") {
-                                    fp = fp[2..].to_string();
-                                }
-                                if fp.starts_with("/") {
-                                    fp = fp[1..].to_string();
-                                }
-                                debug!("{:?}", fp);
-                                // engine.select_resource(engine.resources.fetch_resource(&fp));
-                                let resource = engine.resources.fetch_resource(&fp);
-                                ctx.add_widget(Box::new(super::ResourceInspector::new(resource, f.clone())), super::DockLoc::Floating);
+                                debug!("[BUTTON] file clicked: {}", f.display());
+                                let resource = engine.resources.fetch_resource(f.into());
+                                ctx.add_widget(Box::new(super::ResourceInspector::new(resource, filename.clone())), super::DockLoc::Floating);
                             }
-                            ui.label(f);
+                            ui.label(filename);
                         });
                         i += 1;
                         if i >= buttons {

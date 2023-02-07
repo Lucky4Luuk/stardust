@@ -17,8 +17,8 @@ impl Renderer {
         let shader = shader::Shader::new(&ctx, (VS, "../shaders/vs.glsl"), (FS, "../shaders/fs.glsl"));
         debug!("Renderer created!");
         Self {
-            mesh: mesh,
-            shader: shader,
+            mesh,
+            shader,
         }
     }
 

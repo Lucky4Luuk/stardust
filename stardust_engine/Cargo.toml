@@ -16,7 +16,6 @@ rand = "0.8.5"
 puffin = "0.14"
 puffin_egui = "0.19"
 
-vfs = "0.9.0"
 image = { version = "0.24", features = ["jpeg","png"] }
 
 stardust_common = { path = "../stardust_common" }
