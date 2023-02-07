@@ -14,7 +14,7 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(ctx: &Context) -> Self {
         let mesh = mesh::Mesh::quad(&ctx);
-        let shader = shader::Shader::new(&ctx, VS, FS);
+        let shader = shader::Shader::new(&ctx, (VS, "../shaders/vs.glsl"), (FS, "../shaders/fs.glsl"));
         debug!("Renderer created!");
         Self {
             mesh: mesh,

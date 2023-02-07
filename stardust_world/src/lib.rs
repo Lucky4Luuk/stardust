@@ -18,7 +18,7 @@ pub use data::*;
 pub const BRICK_POOL_SIZE: usize = 32768;
 pub const LAYER0_POOL_SIZE: usize = 8192;
 const BRICK_MAP_SIZE: usize = 64;
-const VOXEL_QUEUE_SIZE: usize = 16384;
+const VOXEL_QUEUE_SIZE: usize = 4096;
 const DEALLOC_QUEUE_SIZE: usize = 64;
 
 pub struct World {
@@ -61,10 +61,10 @@ impl World {
         let layer0_map = FixedSizeBuffer::new(ctx, BRICK_MAP_SIZE * BRICK_MAP_SIZE * BRICK_MAP_SIZE);
         debug!("GPU Brick map created!");
         let free_brick_pool = FixedSizeBuffer::new(ctx, BRICK_POOL_SIZE);
-        free_brick_pool.write(0, &(0..BRICK_POOL_SIZE).into_iter().rev().map(|i| i as u32).collect::<Vec<u32>>());
+        free_brick_pool.write(0, &(0..BRICK_POOL_SIZE).into_iter().map(|i| i as u32 + 1).collect::<Vec<u32>>());
         debug!("GPU Free brick pool created!");
-        let free_layer0_pool = FixedSizeBuffer::new(ctx, BRICK_POOL_SIZE);
-        free_layer0_pool.write(0, &(0..LAYER0_POOL_SIZE).into_iter().rev().map(|i| i as u32).collect::<Vec<u32>>());
+        let free_layer0_pool = FixedSizeBuffer::new(ctx, LAYER0_POOL_SIZE);
+        free_layer0_pool.write(0, &(0..LAYER0_POOL_SIZE).into_iter().map(|i| i as u32 + 1).collect::<Vec<u32>>());
         debug!("GPU Free layer0 pool created!");
         let voxel_queue_gpu = FixedSizeBuffer::new(ctx, VOXEL_QUEUE_SIZE);
         debug!("GPU Voxel queue created!");
@@ -75,11 +75,11 @@ impl World {
         let layer0_pool_counter = AtomicCounter::new(ctx);
         layer0_pool_counter.reset(LAYER0_POOL_SIZE as u32);
 
-        let cs_process_voxels = ComputeShader::new(ctx, include_str!("../shaders/cs_process_voxel_queue.glsl"));
-        let cs_alloc_layers = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_layers.glsl"));
-        let cs_alloc_bricks = ComputeShader::new(ctx, include_str!("../shaders/cs_alloc_bricks.glsl"));
-        let cs_dealloc_bricks = ComputeShader::new(ctx, include_str!("../shaders/cs_dealloc_bricks.glsl"));
-        let cs_place_model = ComputeShader::new(ctx, include_str!("../shaders/cs_place_model.glsl"));
+        let cs_process_voxels = ComputeShader::new(ctx, (include_str!("../shaders/cs_process_voxel_queue.glsl"), "../shaders/cs_process_voxel_queue.glsl"));
+        let cs_alloc_layers = ComputeShader::new(ctx, (include_str!("../shaders/cs_alloc_layers.glsl"), "../shaders/cs_alloc_layers.glsl"));
+        let cs_alloc_bricks = ComputeShader::new(ctx, (include_str!("../shaders/cs_alloc_bricks.glsl"), "../shaders/cs_alloc_bricks.glsl"));
+        let cs_dealloc_bricks = ComputeShader::new(ctx, (include_str!("../shaders/cs_dealloc_bricks.glsl"), "../shaders/cs_dealloc_bricks.glsl"));
+        let cs_place_model = ComputeShader::new(ctx, (include_str!("../shaders/cs_place_model.glsl"), "../shaders/cs_place_model.glsl"));
 
         Self {
             brick_pool,
@@ -117,6 +117,14 @@ impl World {
 
     pub fn models_queued(&self) -> usize {
         self.models_queued
+    }
+
+    pub fn bricks_free(&self) -> u32 {
+        self.brick_pool_counter.read()
+    }
+
+    pub fn layer0s_free(&self) -> u32 {
+        self.layer0_pool_counter.read()
     }
 
     /// Queues a voxel to be uploaded to the GPU and placed in the world.
@@ -170,7 +178,7 @@ impl World {
         self.cs_alloc_bricks.dispatch([size, 1, 1]);
         ctx.fence();
 
-        // Processing voxels doesn't use these
+        // Processing voxels uses different binds
         self.layer0_pool_counter.unbind();
         self.brick_pool_counter.unbind();
         self.free_layer0_pool.unbind();

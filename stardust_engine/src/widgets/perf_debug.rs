@@ -13,5 +13,7 @@ impl super::Widget for PerfDebug {
         ui.label(&format!("gpu_models: {}", engine.world.gpu_models.len()));
         ui.label(&format!("models_queued: {}", engine.world.models_queued()));
         ui.label(&format!("voxels_queued: {}", engine.world.voxels_queued()));
+        // ui.label(&format!("bricks_free: {}", engine.world.bricks_free()));
+        // ui.label(&format!("layer0_free: {}", engine.world.layer0s_free()));
     }
 }

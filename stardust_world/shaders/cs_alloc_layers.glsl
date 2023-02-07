@@ -16,85 +16,66 @@ struct Layer0Node {
     uint brick_idx[16*16*16];
 };
 
-layout(std430, binding = 0) buffer brick_pool {
+layout(std430, binding = 0) coherent buffer brick_pool {
     Brick bricks[];
 };
 
-layout(std430, binding = 1) buffer layer0_pool {
+layout(std430, binding = 1) coherent buffer layer0_pool {
     Layer0Node layer0_nodes[];
 };
 
-layout(std430, binding = 2) buffer brick_map {
+layout(std430, binding = 2) coherent buffer brick_map {
     // Offset by 1, so 0 means not allocated
     uint layer0_pool_indices[];
 };
 
-layout(std430, binding = 3) buffer voxel_queue {
+layout(std430, binding = 3) coherent buffer voxel_queue {
     uvec4 voxels[];
 };
 
-layout(std430, binding = 4) buffer free_brick_pool {
+layout(std430, binding = 4) coherent buffer free_brick_pool {
     uint free_brick_indices[];
 };
 
-layout(std430, binding = 5) buffer free_layer0_pool {
+layout(std430, binding = 5) coherent buffer free_layer0_pool {
     uint free_layer0_indices[];
 };
 
 layout(binding = 6) uniform atomic_uint brick_pool_counter;
 layout(binding = 7) uniform atomic_uint layer0_pool_counter;
 
-bool getLayer0(ivec3 pos, out uint layer0_pool_idx) {
-    ivec3 p = pos;
-    int brick_map_idx = p.x + p.y * BRICK_MAP_SIZE + p.z * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
-    if (brick_map_idx < 0) return false;
-    layer0_pool_idx = layer0_pool_indices[brick_map_idx];
-    if (layer0_pool_idx == 0) return false;
-    return true;
-}
-
 uint findLayer0Empty() {
     uint next_free_idx = atomicCounterDecrement(layer0_pool_counter);
+    // This if-statement checks for underflowing
     if (next_free_idx >= LAYER0_POOL_SIZE) {
-        memoryBarrierAtomicCounter();
         atomicCounterExchange(layer0_pool_counter, LAYER0_POOL_SIZE);
         return 0;
     }
-    return free_layer0_indices[next_free_idx] + 1;
+    return free_layer0_indices[next_free_idx];
 }
 
-void allocLayer0(ivec3 pos, out uint layer0_pool_idx) {
-    ivec3 p = pos;
+void setVoxel(ivec3 wpos) {
+    ivec3 layer0Pos = ivec3(floor(wpos / float(LAYER0_SIZE) / float(BRICK_SIZE)));
+
+    ivec3 p = layer0Pos;
     int brick_map_idx = p.x + p.y * BRICK_MAP_SIZE + p.z * BRICK_MAP_SIZE * BRICK_MAP_SIZE;
     if (brick_map_idx < 0) return;
 
-    layer0_pool_idx = findLayer0Empty();
-    if (layer0_pool_idx == 0) {
-        return;
+    if (atomicCompSwap(layer0_pool_indices[brick_map_idx], 0, 1) == 0) {
+        uint layer0_pool_idx = findLayer0Empty();
+        if (layer0_pool_idx > 0) {
+            atomicExchange(layer0_pool_indices[brick_map_idx], layer0_pool_idx);
+            for (uint i = 0; i < 16*16*16; i++) {
+                atomicExchange(layer0_nodes[layer0_pool_idx - 1].brick_idx[i], 0);
+            }
+        }
     }
-
-    layer0_pool_indices[brick_map_idx] = layer0_pool_idx;
-}
-
-bool setVoxel(ivec3 wpos, uint voxel) {
-    ivec3 layer0Pos = ivec3(floor(wpos / float(LAYER0_SIZE) / float(BRICK_SIZE)));
-    ivec3 brickPos = ivec3(floor(wpos / float(BRICK_SIZE)));
-    ivec3 voxelPos = ivec3(floor(wpos)) % BRICK_SIZE;
-
-    uint brick_pool_idx = 0;
-    uint layer0_pool_idx = 0;
-
-    if (!getLayer0(layer0Pos, layer0_pool_idx)) {
-        allocLayer0(layer0Pos, layer0_pool_idx);
-    }
-    return false;
 }
 
 void main() {
     if (atomicCounter(layer0_pool_counter) > 0) {
         uvec4 voxel = voxels[gl_GlobalInvocationID.x];
-        ivec3 pos = ivec3(voxel.x, voxel.y, voxel.z);
-        uint raw = voxel.w;
-        setVoxel(pos, raw);
+        ivec3 wpos = ivec3(voxel.xyz);
+        setVoxel(wpos);
     }
 }

@@ -48,36 +48,27 @@ void main() {
     // This shader will go through all bricks in the pool and check if they are in use and empty.
     // If they are, they get deallocated.
 
-    uint brick_pool_idx = atomicCounterIncrement(dealloc_counter) % BRICK_POOL_SIZE;
+    uint brick_pool_idx = (atomicCounterIncrement(dealloc_counter) % BRICK_POOL_SIZE) + 1;
 
     if (bricks[brick_pool_idx - 1].voxels[4098] > 0) {
-        if (brickEmpty(brick_pool_idx)) {
-            bricks[brick_pool_idx - 1].voxels[4099] += 1;
-        } else {
-            bricks[brick_pool_idx - 1].voxels[4099] = 0;
-        }
-    }
+        uint layer0_pool_idx = bricks[brick_pool_idx - 1].voxels[4096];
+        if (layer0_pool_idx > 0) {
+            uint l0_idx = bricks[brick_pool_idx - 1].voxels[4097];
+            if (layer0_nodes[layer0_pool_idx - 1].brick_idx[l0_idx] == brick_pool_idx) {
+                if (brickEmpty(brick_pool_idx)) {
+                    bricks[brick_pool_idx - 1].voxels[4099] += 1;
+                } else {
+                    bricks[brick_pool_idx - 1].voxels[4099] = 0;
+                }
 
-    // if (bricks[brick_pool_idx - 1].voxels[4099] > 1) {
-    //     bricks[brick_pool_idx - 1].voxels[4098] = 0;
-    // }
+                if (bricks[brick_pool_idx - 1].voxels[4099] > 1) {
+                    uint write_idx = atomicCounterIncrement(brick_pool_counter);
+                    atomicExchange(free_brick_indices[write_idx], brick_pool_idx);
 
-    memoryBarrier();
-
-    if (bricks[brick_pool_idx - 1].voxels[4098] > 0) {
-        if (bricks[brick_pool_idx - 1].voxels[4099] > 1) {
-            uint layer0_pool_idx = bricks[brick_pool_idx - 1].voxels[4096];
-            if (layer0_pool_idx > 0) {
-                uint l0_idx = bricks[brick_pool_idx - 1].voxels[4097];
-                if (layer0_nodes[layer0_pool_idx - 1].brick_idx[l0_idx] == brick_pool_idx) {
                     layer0_nodes[layer0_pool_idx - 1].brick_idx[l0_idx] = 0;
                     for (int i = 0; i < 16*16*16 + 4; i++) {
                         bricks[brick_pool_idx - 1].voxels[i] = 0;
                     }
-
-                    uint write_idx = atomicCounterIncrement(brick_pool_counter) + 1;
-                    if (write_idx >= BRICK_POOL_SIZE) return;
-                    free_brick_indices[write_idx] = brick_pool_idx - 1;
                 }
             }
         }
