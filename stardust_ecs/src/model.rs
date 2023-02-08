@@ -1,4 +1,5 @@
 use specs::prelude::*;
+use ecs_derive::EngineComponent;
 
 use std::sync::Arc;
 
@@ -7,13 +8,15 @@ use stardust_world::GpuModel;
 
 use crate::{Value, ValueOwned, FieldError, FieldMap};
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, EngineComponent)]
 #[storage(DenseVecStorage)]
 pub struct CompModel {
     pub prev_vox_pos: UVec3,
     pub vox_pos: UVec3,
+    #[visible]
     pub dirty: bool,
 
+    #[editable("Model")]
     pub model_ref: Option<Arc<GpuModel>>,
     pub next_model: Option<Arc<GpuModel>>,
 }
@@ -45,21 +48,14 @@ impl CompModel {
     }
 }
 
-impl crate::EngineComponent for CompModel {
-    fn fields(&mut self) -> FieldMap {
-        let mut map = FieldMap::new();
-        map.insert("model".to_string(), (true, Value::ModelReference(&mut self.model_ref)));
-        map.insert("dirty".to_string(), (false, Value::Bool(&mut self.dirty)));
-        map
-    }
-
+impl crate::EngineComponentSetField<CompModel> for CompModel {
     fn set_field(&mut self, name: &str, value: ValueOwned) -> Result<(), FieldError> {
+        use crate::EngineComponentGetField;
         let mut fields = self.fields();
         match name {
             // Special case for this component
-            "model" => if let ValueOwned::ModelReference(model_owned) = value {
+            "model" | "Model" | "model_ref" => if let ValueOwned::ModelReference(model_owned) = value {
                 self.next_model = model_owned;
-                // self.model_ref = model_owned;
                 self.dirty = true;
                 Ok(())
             } else {

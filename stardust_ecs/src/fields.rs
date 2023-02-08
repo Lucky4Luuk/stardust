@@ -19,6 +19,22 @@ pub enum FieldError {
     FieldValueUnsupported,
 }
 
+pub trait ToValue<'a> {
+    fn to_value(self) -> Value<'a>;
+}
+
+impl<'a, T: Into<Value<'a>>> ToValue<'a> for T {
+    fn to_value(self) -> Value<'a> {
+        self.into()
+    }
+}
+
+impl<'a> ToValue<'a> for &'a mut stardust_common::math::Vec3 {
+    fn to_value(self) -> Value<'a> {
+        Value::Vec3(&mut self.x, &mut self.y, &mut self.z)
+    }
+}
+
 pub enum ValueOwned {
     // Primitives
     String(String),
@@ -204,7 +220,7 @@ pub trait EngineComponentReadable<T: Component + Clone> {
 
 impl<T: Component + Clone> EngineComponentReadable<T> for T {
     fn read(world: &World, entity: Entity) -> Option<T> {
-        let storage = world.read_storage::<Self>();
+        let storage = world.read_storage::<T>();
         storage.get(entity).map(|comp| comp.clone())
     }
 }
@@ -215,13 +231,36 @@ pub fn read<T: Component + Clone + EngineComponent + EngineComponentName + Engin
     }
 }
 
+pub trait EngineComponentImplementor {}
+
+impl<T: EngineComponentImplementor + EngineComponentGetField + EngineComponentWritable + EngineComponentSetField<T>> EngineComponent for T {}
+
 pub trait EngineComponentName {
     fn name() -> &'static str;
 }
 
-pub trait EngineComponent: EngineComponentWritable {
+pub trait EngineComponent: EngineComponentWritable + EngineComponentGetField + EngineComponentSetFieldGeneric {}
+
+pub trait EngineComponentGetField {
     fn fields(&mut self) -> FieldMap;
+}
+
+pub trait EngineComponentSetFieldGeneric {
+    fn set_field(&mut self, name: &str, value: ValueOwned) -> Result<(), FieldError>;
+}
+
+impl<T: EngineComponentSetField<T>> EngineComponentSetFieldGeneric for T {
     fn set_field(&mut self, name: &str, value: ValueOwned) -> Result<(), FieldError> {
+        EngineComponentSetField::set_field(self, name, value)
+    }
+}
+
+pub trait EngineComponentSetField<T>: EngineComponentGetField + EngineComponentWritable {
+    fn set_field(&mut self, name: &str, value: ValueOwned) -> Result<(), FieldError>;
+}
+
+impl<T: EngineComponentGetField + EngineComponentWritable> EngineComponentSetField<T> for T {
+    default fn set_field(&mut self, name: &str, value: ValueOwned) -> Result<(), FieldError> {
         let mut fields = self.fields();
         if let Some((_, value_ref)) = fields.get_mut(name) {
             value_ref.set_from_owned(value)
@@ -230,3 +269,6 @@ pub trait EngineComponent: EngineComponentWritable {
         }
     }
 }
+
+// pub trait EngineComponentSetFieldImplReq {}
+// impl<T: EngineComponentSetFieldImplReq + EngineComponentGetField> EngineComponentSetField for T {}

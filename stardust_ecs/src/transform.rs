@@ -8,6 +8,7 @@ use crate::{Value, FieldMap};
 #[derive(Debug, Component, Clone, EngineComponent)]
 #[storage(VecStorage)]
 pub struct CompTransform {
+    #[editable]
     pub position: Vec3,
     pub rotation_x: f32,
     pub rotation_y: f32,

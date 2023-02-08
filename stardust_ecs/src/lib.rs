@@ -1,3 +1,5 @@
+#![feature(min_specialization)]
+
 #[macro_use] extern crate specs;
 use specs::prelude::*;
 use indexmap::IndexMap;
@@ -129,29 +131,10 @@ impl Scene {
 
     // TODO: Check if entity is still alive
     pub fn entity_component_list(&mut self, entity: Entity) -> EntityComponentInfo {
-        // Storages for each component
-        // let name_storage = self.world.read_storage::<CompName>();
-        // let transform_storage = self.world.read_storage::<CompTransform>();
-        // let model_storage = self.world.read_storage::<CompModel>();
-        //
-        // let mut components: ComponentMap = ComponentMap::new();
-        //
-        // if let Some(comp) = name_storage.get(entity) {
-        //     components.insert(String::from("Name"), Box::new(comp.clone()));
-        // }
-        //
-        // if let Some(comp) = transform_storage.get(entity) {
-        //     components.insert(String::from("Transform"), Box::new(comp.clone()));
-        // }
-        //
-        // if let Some(comp) = model_storage.get(entity) {
-        //     components.insert(String::from("Model"), Box::new(comp.clone()));
-        // }
-
         let mut components: ComponentMap = ComponentMap::new();
         read::<CompName>(&self.world, entity, &mut components);
-        // read::<CompTransform>(&self.world, entity, &mut components);
-        // read::<CompModel>(&self.world, entity, &mut components);
+        read::<CompTransform>(&self.world, entity, &mut components);
+        read::<CompModel>(&self.world, entity, &mut components);
 
         EntityComponentInfo {
             entity,
