@@ -1,10 +1,11 @@
 use specs::prelude::*;
+use ecs_derive::EngineComponent;
 
 use stardust_common::math::*;
 
 use crate::{Value, FieldMap};
 
-#[derive(Debug, Component, Clone)]
+#[derive(Debug, Component, Clone, EngineComponent)]
 #[storage(VecStorage)]
 pub struct CompTransform {
     pub position: Vec3,
@@ -26,15 +27,5 @@ impl CompTransform {
             rotation_w: r[3],
             scale: vec3(0.0, 0.0, 0.0),
         }
-    }
-}
-
-impl crate::EngineComponent for CompTransform {
-    fn fields(&mut self) -> FieldMap {
-        let mut map = FieldMap::new();
-        map.insert(String::from("pos"), (true, Value::Vec3(&mut self.position.x, &mut self.position.y, &mut self.position.z)));
-        map.insert(String::from("rot"), (true, Value::Vec4(&mut self.rotation_x, &mut self.rotation_y, &mut self.rotation_z, &mut self.rotation_w)));
-        map.insert(String::from("scl"), (true, Value::Vec3(&mut self.scale.x, &mut self.scale.y, &mut self.scale.z)));
-        map
     }
 }

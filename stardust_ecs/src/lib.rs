@@ -3,6 +3,8 @@ use specs::prelude::*;
 use indexmap::IndexMap;
 use std::sync::Arc;
 
+use ecs_derive::EngineComponent;
+
 use stardust_common::math::*;
 
 mod fields;
@@ -19,14 +21,18 @@ pub mod prelude;
 /// Use shift_remove to remove components!
 pub type ComponentMap = IndexMap<String, Box<dyn EngineComponent>>;
 
-#[derive(Debug, Component, Clone)]
+#[derive(Debug, Component, Clone, EngineComponent)]
 #[storage(VecStorage)]
-pub struct CompName(pub String);
-impl EngineComponent for CompName {
-    fn fields(&mut self) -> FieldMap {
-        let mut map = FieldMap::new();
-        map.insert(String::from("Name"), (true, Value::String(&mut self.0)));
-        map
+pub struct CompName {
+    #[editable]
+    pub name: String,
+}
+
+impl CompName {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+        }
     }
 }
 
@@ -79,7 +85,7 @@ impl Scene {
     }
 
     pub fn create_entity<S: Into<String>, F: Fn(EntityBuilder) -> EntityBuilder>(&mut self, name: S, f: F) {
-        f(self.world.create_entity().with(CompName(name.into()))).build();
+        f(self.world.create_entity().with(CompName::new(name.into()))).build();
     }
 
     /// dt = deltatime in seconds
@@ -104,10 +110,10 @@ impl Scene {
         {
             let entity_storage = self.world.entities();
             let name_storage = self.world.read_storage::<CompName>();
-            for (entity, name) in (&entity_storage, &name_storage).join() {
+            for (entity, cname) in (&entity_storage, &name_storage).join() {
                 info.push(
                     EntityInfo {
-                        name: name.0.clone(),
+                        name: cname.name.clone(),
                         kind: EntityType::Entity(entity),
                     }
                 );
@@ -124,23 +130,28 @@ impl Scene {
     // TODO: Check if entity is still alive
     pub fn entity_component_list(&mut self, entity: Entity) -> EntityComponentInfo {
         // Storages for each component
-        let name_storage = self.world.read_storage::<CompName>();
-        let transform_storage = self.world.read_storage::<CompTransform>();
-        let model_storage = self.world.read_storage::<CompModel>();
+        // let name_storage = self.world.read_storage::<CompName>();
+        // let transform_storage = self.world.read_storage::<CompTransform>();
+        // let model_storage = self.world.read_storage::<CompModel>();
+        //
+        // let mut components: ComponentMap = ComponentMap::new();
+        //
+        // if let Some(comp) = name_storage.get(entity) {
+        //     components.insert(String::from("Name"), Box::new(comp.clone()));
+        // }
+        //
+        // if let Some(comp) = transform_storage.get(entity) {
+        //     components.insert(String::from("Transform"), Box::new(comp.clone()));
+        // }
+        //
+        // if let Some(comp) = model_storage.get(entity) {
+        //     components.insert(String::from("Model"), Box::new(comp.clone()));
+        // }
 
         let mut components: ComponentMap = ComponentMap::new();
-
-        if let Some(comp) = name_storage.get(entity) {
-            components.insert(String::from("Name"), Box::new(comp.clone()));
-        }
-
-        if let Some(comp) = transform_storage.get(entity) {
-            components.insert(String::from("Transform"), Box::new(comp.clone()));
-        }
-
-        if let Some(comp) = model_storage.get(entity) {
-            components.insert(String::from("Model"), Box::new(comp.clone()));
-        }
+        read::<CompName>(&self.world, entity, &mut components);
+        // read::<CompTransform>(&self.world, entity, &mut components);
+        // read::<CompModel>(&self.world, entity, &mut components);
 
         EntityComponentInfo {
             entity,

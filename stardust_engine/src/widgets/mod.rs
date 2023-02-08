@@ -169,6 +169,12 @@ impl WidgetManager {
         egui::TopBottomPanel::top("menubar").resizable(false).show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
+                    if ui.button("New project...").clicked() {
+                        debug!("[BUTTON] New project...");
+                    }
+                    if ui.button("Open project...").clicked() {
+                        debug!("[BUTTON] Open project...");
+                    }
                     if ui.button("Save project...").clicked() {
                         debug!("[BUTTON] Save project...");
                     }

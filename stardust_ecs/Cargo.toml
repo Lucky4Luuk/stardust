@@ -10,6 +10,8 @@ specs = { version = "0.18", features = ["derive"] }
 thiserror = "1.0"
 indexmap = "1.9.2"
 
+ecs_derive = { path = "ecs_derive" }
+
 stardust_common = { path = "../stardust_common" }
 stardust_world = { path = "../stardust_world" }
 stardust_sdvx = { path = "../stardust_sdvx" }

@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
 use specs::prelude::*;
@@ -58,6 +57,50 @@ pub enum Value<'a> {
 
     // Complex values
     ModelReference(&'a mut Option<Arc<GpuModel>>),
+}
+
+impl<'a> From<&'a mut String> for Value<'a> {
+    fn from(value: &'a mut String) -> Self { Self::String(value) }
+}
+
+impl<'a> From<&'a mut bool> for Value<'a> {
+    fn from(value: &'a mut bool) -> Self { Self::Bool(value) }
+}
+
+impl<'a> From<&'a mut f32> for Value<'a> {
+    fn from(value: &'a mut f32) -> Self { Self::PrimF32(value) }
+}
+
+impl<'a> From<&'a mut u8> for Value<'a> {
+    fn from(value: &'a mut u8) -> Self { Self::PrimU8(value) }
+}
+
+impl<'a> From<&'a mut u16> for Value<'a> {
+    fn from(value: &'a mut u16) -> Self { Self::PrimU16(value) }
+}
+
+impl<'a> From<&'a mut u32> for Value<'a> {
+    fn from(value: &'a mut u32) -> Self { Self::PrimU32(value) }
+}
+
+impl<'a> From<&'a mut u64> for Value<'a> {
+    fn from(value: &'a mut u64) -> Self { Self::PrimU64(value) }
+}
+
+impl<'a> From<(&'a mut f32, &'a mut f32)> for Value<'a> {
+    fn from((x,y): (&'a mut f32, &'a mut f32)) -> Self { Self::Vec2(x,y) }
+}
+
+impl<'a> From<(&'a mut f32, &'a mut f32, &'a mut f32)> for Value<'a> {
+    fn from((x,y,z): (&'a mut f32, &'a mut f32, &'a mut f32)) -> Self { Self::Vec3(x,y,z) }
+}
+
+impl<'a> From<(&'a mut f32, &'a mut f32, &'a mut f32, &'a mut f32)> for Value<'a> {
+    fn from((x,y,z,w): (&'a mut f32, &'a mut f32, &'a mut f32, &'a mut f32)) -> Self { Self::Vec4(x,y,z,w) }
+}
+
+impl<'a> From<&'a mut Option<Arc<GpuModel>>> for Value<'a> {
+    fn from(value: &'a mut Option<Arc<GpuModel>>) -> Self { Self::ModelReference(value) }
 }
 
 impl<'a> Value<'a> {
@@ -144,7 +187,7 @@ pub trait EngineComponentWritable {
     fn write(&self, world: &mut World, entity: Entity);
 }
 
-impl<T: Component + Clone> EngineComponentWritable for T {
+impl<T: Component + Clone + EngineComponentReadable<T>> EngineComponentWritable for T {
     fn write(&self, world: &mut World, entity: Entity) {
         let mut storage = world.write_storage::<Self>();
         if let Some(comp) = storage.get_mut(entity) {
@@ -153,6 +196,27 @@ impl<T: Component + Clone> EngineComponentWritable for T {
             storage.insert(entity, self.clone()).expect("Failed to add component!");
         }
     }
+}
+
+pub trait EngineComponentReadable<T: Component + Clone> {
+    fn read(world: &World, entity: Entity) -> Option<T>;
+}
+
+impl<T: Component + Clone> EngineComponentReadable<T> for T {
+    fn read(world: &World, entity: Entity) -> Option<T> {
+        let storage = world.read_storage::<Self>();
+        storage.get(entity).map(|comp| comp.clone())
+    }
+}
+
+pub fn read<T: Component + Clone + EngineComponent + EngineComponentName + EngineComponentReadable<T>>(world: &World, entity: Entity, map: &mut crate::ComponentMap) {
+    if let Some(comp) = T::read(world, entity) {
+        map.insert(T::name().to_string(), Box::new(comp.clone()));
+    }
+}
+
+pub trait EngineComponentName {
+    fn name() -> &'static str;
 }
 
 pub trait EngineComponent: EngineComponentWritable {
