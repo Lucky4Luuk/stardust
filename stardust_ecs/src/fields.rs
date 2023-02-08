@@ -269,6 +269,3 @@ impl<T: EngineComponentGetField + EngineComponentWritable> EngineComponentSetFie
         }
     }
 }
-
-// pub trait EngineComponentSetFieldImplReq {}
-// impl<T: EngineComponentSetFieldImplReq + EngineComponentGetField> EngineComponentSetField for T {}

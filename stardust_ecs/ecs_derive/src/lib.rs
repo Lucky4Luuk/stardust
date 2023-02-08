@@ -66,6 +66,8 @@ fn impl_engine_component(ast: &syn::DeriveInput) -> TokenStream {
                                             syn::Lit::Str(new_name) => *name = Some(new_name.value()),
                                             _ => panic!("Unsupported type!"),
                                         }
+                                    } else {
+                                        panic!("Unsupported name!");
                                     }
                                 },
                                 _ => {},
