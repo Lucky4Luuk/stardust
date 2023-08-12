@@ -65,6 +65,14 @@ impl VoxelApp for App {
                     let rr = cx*cx + cy*cy + cz*cz;
                     if rr < 16*16 {
                         engine.world.set_voxel(Voxel::new([255; 3], 255, 255, false, 255), uvec3(1024 + x, 1024 + y, 1024 + z));
+                        engine.world.set_voxel(Voxel::new([255; 3], 255, 255, false, 255), uvec3(1024 + x + 224, 1024 + y, 1024 + z));
+                        engine.world.set_voxel(Voxel::new([255; 3], 255, 255, false, 255), uvec3(1024 + x + 224, 1024 + y + 244, 1024 + z));
+                        engine.world.set_voxel(Voxel::new([255; 3], 255, 255, false, 255), uvec3(1024 + x, 1024 + y + 244, 1024 + z));
+
+                        engine.world.set_voxel(Voxel::new([255; 3], 255, 255, false, 255), uvec3(1024 + x, 1024 + y, 1024 + z + 224));
+                        engine.world.set_voxel(Voxel::new([255; 3], 255, 255, false, 255), uvec3(1024 + x + 224, 1024 + y, 1024 + z + 224));
+                        engine.world.set_voxel(Voxel::new([255; 3], 255, 255, false, 255), uvec3(1024 + x + 224, 1024 + y + 244, 1024 + z + 224));
+                        engine.world.set_voxel(Voxel::new([255; 3], 255, 255, false, 255), uvec3(1024 + x, 1024 + y + 244, 1024 + z + 224));
                     }
                 }
             }
