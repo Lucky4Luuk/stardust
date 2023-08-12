@@ -1,0 +1,27 @@
+[package]
+name = "stardust_engine_lib"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4"
+anyhow = "1.0"
+thiserror = "1.0"
+foxtail = { path = "../../foxtail/foxtail" }
+egui = "0.20"
+egui_extras = { version = "0.20", features = ["image"] }
+
+winit_input_helper = "0.13.0"
+rand = "0.8.5"
+puffin = "0.14"
+puffin_egui = "0.19"
+
+image = { version = "0.24", features = ["jpeg","png"] }
+
+stardust_common = { path = "../stardust_common" }
+stardust_world = { path = "../stardust_world" }
+stardust_ecs = { path = "../stardust_ecs" }
+stardust_sdvx = { path = "../stardust_sdvx" }
+stardust_magica_voxel = { path = "../stardust_magica_voxel" }

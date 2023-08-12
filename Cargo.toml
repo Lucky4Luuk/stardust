@@ -1,5 +1,6 @@
 [workspace]
 members = [
+	"stardust_engine_lib",
 	"stardust_engine",
 	"stardust_common",
 	"stardust_world",
